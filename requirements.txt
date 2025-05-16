@@ -1,0 +1,10 @@
+Flask
+Flask-SocketIO
+python-socketio
+chromadb
+openai
+langchain-google-genai
+python-dotenv
+uuid
+eventlet
+

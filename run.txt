@@ -1,0 +1,732 @@
+(venv) dmitryneuro@neuroidssredmi:~/git.neuroidss/tool_artifact$ ./run.sh --recreate --demo demo_script.json 
+Starting python server...
+[DEBUG GLOBAL] [DEMO] Successfully loaded demo script: demo_script.json
+[SERVER] Demo mode activated with script: demo_script.json
+Initializing server for Orb of Ingenuity Demo...
+[DEBUG DynamicExecutor] Initializing DynamicFunctionExecutor store...
+[DEBUG DynamicExecutor] Chroma collection 'dynamic_functions' ready.
+[DEBUG DynamicExecutor] 'create_dynamic_function' definition already in Chroma store.
+[DEBUG DynamicExecutor] DynamicFunctionExecutor store initialized successfully.
+[SERVER] --recreate flag set. Clearing existing save and dynamic functions.
+[SERVER] Deleted save file: game_save.json
+[DEBUG DynamicExecutor] Attempting to delete and recreate collection: dynamic_functions
+[DEBUG DynamicExecutor] Collection 'dynamic_functions' cleared and recreated.
+[DEBUG DynamicExecutor] Adding 'create_dynamic_function' definition to Chroma store for discovery...
+[DEBUG GLOBAL] Host API 'host_core_add_location_to_gamestate' registered for LLM use.
+[DEBUG GLOBAL] Host API 'host_core_add_artifact_to_gamestate' registered for LLM use.
+[DEBUG GLOBAL] Host API 'host_core_add_env_object_to_gamestate' registered for LLM use.
+[DEBUG GLOBAL] Host API 'host_core_initialize_puzzle_state' registered for LLM use.
+[DEBUG GLOBAL] Host API 'host_log_message_to_world' registered for LLM use.
+[DEBUG GLOBAL] Host API 'host_apply_effect_on_environment_object' registered for LLM use.
+[DEBUG GLOBAL] Host API 'host_check_puzzle_condition' registered for LLM use.
+[DEBUG GLOBAL] Host API 'host_trigger_world_event' registered for LLM use.
+[DEBUG GLOBAL] Host API 'host_create_temporary_object' registered for LLM use.
+[DEBUG GLOBAL] Host API 'host_get_entity_data' registered for LLM use.
+[DEBUG GLOBAL] Host API 'host_get_location_data' registered for LLM use.
+[DEBUG GLOBAL] Host API 'host_get_environment_object_data' registered for LLM use.
+[DEBUG GLOBAL] Demo mode: World genesis will occur upon first player connection.
+Server starting on http://0.0.0.0:3001
+[DEBUG NnxHCjfF73I6n_kdAAAB] DemoPlayer connected (3c972e7a-909c-4bac-822f-6c99674af13c). SID NnxHCjfF73I6n_kdAAAB.
+[WORLD] DemoPlayer has entered. The world is about to be born from the digital ether!
+[DEBUG NnxHCjfF73I6n_kdAAAB] First demo player connected. Initiating world genesis via initial_prompt.json.
+[WORLD] Server: Initiating World Genesis Protocol...
+[DEBUG GLOBAL] Processing initial prompt file: initial_prompt.json
+[DEBUG GLOBAL] Initial Prompt CMD 1: create_dynamic_function with args: {"new_function_name": "df_initiate_orb_tool_creation", "new_function_description": "This function is...
+[DEBUG DynamicExecutor] Attempting to execute function: create_dynamic_function with params: {"new_function_name": "df_initiate_orb_tool_creation", "new_function_description": "This function is called when the Orb of Ingenuity is used. It signals the client to prompt the user for a descriptio...
+[DEBUG DynamicExecutor] Executing special internal function: create_dynamic_function
+[DEBUG DynamicExecutor] Attempting to create dynamic function: df_initiate_orb_tool_creation
+[DEBUG DynamicExecutor] Calling LLM (gemini-2.5-flash-preview-04-17) for function: df_initiate_orb_tool_creation
+[DEBUG DynamicExecutor] Sanitized code for df_initiate_orb_tool_creation:
+def df_initiate_orb_tool_creation(params):
+    # This function is called when the Orb of Ingenuity is used.
+    # It signals the client to prompt the user for a description of a new tool.
+    # It MUST return the exact string 'EVENT:PROMPT_USER_FOR_TOOL_DESCRIPTION'.
+    # It should not call any host APIs.
+
+    try:
+        # The function's sole purpose is to return a specific string
+        # to trigger a client-side event (prompting the user).
+        # No host API calls are required for this specific function's logic.
+        return 'EVENT:PROMPT_USER_FOR_TOOL_DESCRIPTION'
+
+    except Exception as error:
+        # Basic error handling, though unlikely for this simple function
+        return f"Error executing df_initiate_orb_tool_creation: {error}"
+[DEBUG DynamicExecutor] Syntax validation passed for df_initiate_orb_tool_creation.
+[DEBUG DynamicExecutor] Upserting function 'df_initiate_orb_tool_creation' definition to Chroma DB...
+[DEBUG GLOBAL] Initial CMD 'create_dynamic_function' Result: Successfully created/updated dynamic function: df_initiate_orb_tool_creation
+[DEBUG GLOBAL] Initial Prompt CMD 2: create_dynamic_function with args: {"new_function_name": "df_interact_with_pedestal", "new_function_description": "Player uses an eleme...
+[DEBUG DynamicExecutor] Attempting to execute function: create_dynamic_function with params: {"new_function_name": "df_interact_with_pedestal", "new_function_description": "Player uses an elemental item on a pedestal. Needs 'soul_id', 'artifact_properties' (for element_type), and 'target_pede...
+[DEBUG DynamicExecutor] Executing special internal function: create_dynamic_function
+[DEBUG DynamicExecutor] Attempting to create dynamic function: df_interact_with_pedestal
+[DEBUG DynamicExecutor] Calling LLM (gemini-2.5-flash-preview-04-17) for function: df_interact_with_pedestal
+[DEBUG DynamicExecutor] Sanitized code for df_interact_with_pedestal:
+def df_interact_with_pedestal(params):
+    """
+    Player uses an elemental item on a pedestal. Needs 'soul_id', 'artifact_properties'
+    (for element_type), and 'target_pedestal_id' from params.
+    """
+    try:
+        # 1. Get 'element_type' from params['artifact_properties'].
+        artifact_properties = params.get('artifact_properties')
+        if not artifact_properties or 'element_type' not in artifact_properties:
+            return "Error: Missing artifact_properties or element_type in params."
+        element_type = artifact_properties['element_type']
+
+        # Get 'target_pedestal_id' from params. Required by schema.
+        target_pedestal_id = params['target_pedestal_id']
+
+        # 2. Call external_apis['host_get_environment_object_data']
+        if 'host_get_environment_object_data' not in external_apis:
+            return "Error: host_get_environment_object_data API not available."
+        pedestal_data_str = external_apis['host_get_environment_object_data']({'object_id': target_pedestal_id})
+
+        # Parse JSON and get 'element_required' from its details.
+        pedestal_data = json.loads(pedestal_data_str)
+        if 'details' not in pedestal_data or 'element_required' not in pedestal_data['details']:
+            return f"Error: Pedestal data for {target_pedestal_id} is missing details or element_required."
+        element_required = pedestal_data['details']['element_required']
+
+        # 3. If element_type matches element_required:
+        if element_type == element_required:
+            # a. Call external_apis['host_apply_effect_on_environment_object']
+            if 'host_apply_effect_on_environment_object' not in external_apis:
+                 return "Error: host_apply_effect_on_environment_object API not available."
+            effect_details = {'is_active': True, 'last_element_placed': element_type}
+            # API returns JSON, but we don't need the result for subsequent steps.
+            external_apis['host_apply_effect_on_environment_object']({'object_id': target_pedestal_id, 'effect_details': effect_details})
+
+            # b. Call external_apis['host_check_puzzle_condition']
+            if 'host_check_puzzle_condition' not in external_apis:
+                 return "Error: host_check_puzzle_condition API not available."
+            puzzle_check_str = external_apis['host_check_puzzle_condition']({'puzzle_id': 'elemental_trial'})
+
+            # Parse JSON.
+            puzzle_check_result = json.loads(puzzle_check_str)
+
+            # c. If condition_met is true, call external_apis['host_trigger_world_event']
+            if puzzle_check_result.get('condition_met', False):
+                if 'host_trigger_world_event' not in external_apis:
+                     return "Error: host_trigger_world_event API not available."
+                soul_id = params.get('soul_id')
+                if not soul_id:
+                    return "Error: Missing soul_id in params for triggering event."
+                # API returns JSON, but we don't need the result.
+                external_apis['host_trigger_world_event']({'event_id': 'elemental_trial_success', 'soul_id': soul_id})
+                return 'All pedestals active! Trial complete!'
+            # d. Else, return '{element_type} placed on pedestal. It glows!'.
+            else:
+                return f'{element_type} placed on pedestal. It glows!'
+        # 4. Else (no match), return 'Wrong element.'.
+        else:
+            return 'Wrong element.'
+
+    except KeyError as e:
+        # Catches missing required params like target_pedestal_id or issues accessing nested dicts
+        return f"Error in df_interact_with_pedestal: Missing expected key in params or API result structure: {e}"
+    except json.JSONDecodeError:
+        return "Error: Failed to parse JSON response from host API."
+    except Exception as error:
+        return f"Error executing df_interact_with_pedestal: {error}"
+[DEBUG DynamicExecutor] Syntax validation passed for df_interact_with_pedestal.
+[DEBUG DynamicExecutor] Upserting function 'df_interact_with_pedestal' definition to Chroma DB...
+[DEBUG GLOBAL] Initial CMD 'create_dynamic_function' Result: Successfully created/updated dynamic function: df_interact_with_pedestal
+[DEBUG GLOBAL] Initial Prompt CMD 3: create_dynamic_function with args: {"new_function_name": "df_use_vault_key", "new_function_description": "Player uses the Vault Key. Ne...
+[DEBUG DynamicExecutor] Attempting to execute function: create_dynamic_function with params: {"new_function_name": "df_use_vault_key", "new_function_description": "Player uses the Vault Key. Needs 'soul_id' from params. \n1. Call external_apis['host_get_entity_data'] with {'entity_id': params...
+[DEBUG DynamicExecutor] Executing special internal function: create_dynamic_function
+[DEBUG DynamicExecutor] Attempting to create dynamic function: df_use_vault_key
+[DEBUG DynamicExecutor] Calling LLM (gemini-2.5-flash-preview-04-17) for function: df_use_vault_key
+[DEBUG DynamicExecutor] Sanitized code for df_use_vault_key:
+def df_use_vault_key(params):
+    """
+    Player uses the Vault Key. Needs 'soul_id' from params.
+    1. Call external_apis['host_get_entity_data'] with {'entity_id': params['soul_id']}. Parse JSON and get 'location_id'. If location_id is not 'vault_approach', return 'Can only use Vault Key at the Vault Approach.'.
+    2. Call external_apis['host_check_puzzle_condition'] with {'puzzle_id': 'vault_access_puzzle'}. Parse JSON. If 'condition_met' is false, return the 'message' from the puzzle check.
+    3. If both are true:
+        a. Call external_apis['host_apply_effect_on_environment_object'] with {'object_id': 'vault_keyhole', 'effect_details': {'is_unlocked': true}}.
+        b. Call external_apis['host_trigger_world_event'] with {'event_id': 'open_vault_door', 'soul_id': params['soul_id']}.
+    4. Return 'Vault key clicks. The door opens!'.
+    Ensure all host API results that are JSON strings are parsed with json.loads().
+    """
+    try:
+        # Get soul_id from params. Assume it's provided as contextual data.
+        soul_id = params.get('soul_id')
+        if not soul_id:
+            return "Error: 'soul_id' not found in parameters."
+
+        # 1. Get entity data to check location
+        entity_data_str = external_apis['host_get_entity_data']({'entity_id': soul_id})
+        entity_data = json.loads(entity_data_str)
+        location_id = entity_data.get('location_id')
+
+        # Check location
+        if location_id != 'vault_approach':
+            return 'Can only use Vault Key at the Vault Approach.'
+
+        # 2. Check puzzle condition
+        puzzle_check_str = external_apis['host_check_puzzle_condition']({'puzzle_id': 'vault_access_puzzle'})
+        puzzle_check_result = json.loads(puzzle_check_str)
+
+        # Check if condition is met
+        if not puzzle_check_result.get('condition_met', False):
+            # Return the message provided by the puzzle check API
+            return puzzle_check_result.get('message', 'Vault access puzzle condition not met.')
+
+        # 3. If both conditions are met
+        # 3a. Apply effect to vault keyhole
+        external_apis['host_apply_effect_on_environment_object']({'object_id': 'vault_keyhole', 'effect_details': {'is_unlocked': True}})
+
+        # 3b. Trigger world event
+        external_apis['host_trigger_world_event']({'event_id': 'open_vault_door', 'soul_id': soul_id})
+
+        # 4. Return success message
+        return 'Vault key clicks. The door opens!'
+
+    except KeyError as e:
+        return f"Error in df_use_vault_key: Missing expected key in external_apis or params: {e}"
+    except json.JSONDecodeError:
+        return "Error in df_use_vault_key: Failed to parse JSON response from host API."
+    except Exception as error:
+        return f"Error executing df_use_vault_key: {error}"
+[DEBUG DynamicExecutor] Syntax validation passed for df_use_vault_key.
+[DEBUG DynamicExecutor] Upserting function 'df_use_vault_key' definition to Chroma DB...
+[DEBUG GLOBAL] Initial CMD 'create_dynamic_function' Result: Successfully created/updated dynamic function: df_use_vault_key
+[DEBUG GLOBAL] Initial Prompt CMD 4: create_dynamic_function with args: {"new_function_name": "df_genesis_engine", "new_function_description": "This function creates the en...
+[DEBUG DynamicExecutor] Attempting to execute function: create_dynamic_function with params: {"new_function_name": "df_genesis_engine", "new_function_description": "This function creates the entire initial game world by directly calling ONLY host APIs. It must perform these actions in order, ...
+[DEBUG DynamicExecutor] Executing special internal function: create_dynamic_function
+[DEBUG DynamicExecutor] Attempting to create dynamic function: df_genesis_engine
+[DEBUG DynamicExecutor] Calling LLM (gemini-2.5-flash-preview-04-17) for function: df_genesis_engine
+[DEBUG DynamicExecutor] Sanitized code for df_genesis_engine:
+def df_genesis_engine(params):
+    """
+    This function creates the entire initial game world by directly calling ONLY host APIs.
+    It performs actions in order, logging major steps.
+    """
+    try:
+        external_apis = params.get('external_apis')
+        if not external_apis:
+            return "Error: external_apis not found in params."
+
+        # 1. Log 'Genesis Engine: Creating locations...'.
+        if 'host_log_message_to_world' in external_apis:
+            external_apis['host_log_message_to_world']({'message': 'Genesis Engine: Creating locations...'})
+        else:
+            return "Error: host_log_message_to_world API not found."
+
+        # 2. Create Location 'Trial Chamber'
+        if 'host_core_add_location_to_gamestate' in external_apis:
+            external_apis['host_core_add_location_to_gamestate']({
+                'id': 'trial_chamber',
+                'name': 'Trial Chamber',
+                'description': 'An ancient chamber with three pedestals: Flame, Water, and Wind. A sealed stone door blocks the exit.',
+                'landmarks': {'flame_pedestal_loc': 'Flame Pedestal', 'water_pedestal_loc': 'Water Pedestal', 'wind_pedestal_loc': 'Wind Pedestal', 'sealed_door_exit': 'Sealed stone door'}
+            })
+        else:
+            return "Error: host_core_add_location_to_gamestate API not found."
+
+        # 3. Create Location 'Vault Approach'
+        if 'host_core_add_location_to_gamestate' in external_apis:
+            external_apis['host_core_add_location_to_gamestate']({
+                'id': 'vault_approach',
+                'name': 'Vault Approach',
+                'description': 'A precarious ledge before a massive vault. A chasm separates you from a keyhole platform.',
+                'landmarks': {'keyhole_platform_exit': 'Keyhole platform', 'vault_door_main': 'Massive vault door'}
+            })
+        else:
+            return "Error: host_core_add_location_to_gamestate API not found."
+
+        # 4. Log 'Genesis Engine: Creating environment objects...'.
+        if 'host_log_message_to_world' in external_apis:
+            external_apis['host_log_message_to_world']({'message': 'Genesis Engine: Creating environment objects...'})
+        else:
+            return "Error: host_log_message_to_world API not found."
+
+        # 5. Create Environment Object 'pedestal_fire'
+        if 'host_core_add_env_object_to_gamestate' in external_apis:
+            external_apis['host_core_add_env_object_to_gamestate']({
+                'id': 'pedestal_fire',
+                'location_id': 'trial_chamber',
+                'type': 'elemental_pedestal',
+                'details': {'element_required': 'fire', 'is_active': False}
+            })
+        else:
+            return "Error: host_core_add_env_object_to_gamestate API not found."
+
+        # 6. Create Env Obj 'pedestal_water'
+        if 'host_core_add_env_object_to_gamestate' in external_apis:
+            external_apis['host_core_add_env_object_to_gamestate']({
+                'id': 'pedestal_water',
+                'location_id': 'trial_chamber',
+                'type': 'elemental_pedestal',
+                'details': {'element_required': 'water', 'is_active': False}
+            })
+        else:
+            return "Error: host_core_add_env_object_to_gamestate API not found."
+
+        # 7. Create Env Obj 'pedestal_wind'
+        if 'host_core_add_env_object_to_gamestate' in external_apis:
+            external_apis['host_core_add_env_object_to_gamestate']({
+                'id': 'pedestal_wind',
+                'location_id': 'trial_chamber',
+                'type': 'elemental_pedestal',
+                'details': {'element_required': 'wind', 'is_active': False}
+            })
+        else:
+            return "Error: host_core_add_env_object_to_gamestate API not found."
+
+        # 8. Create Env Obj 'vault_keyhole'
+        if 'host_core_add_env_object_to_gamestate' in external_apis:
+            external_apis['host_core_add_env_object_to_gamestate']({
+                'id': 'vault_keyhole',
+                'location_id': 'vault_approach',
+                'type': 'keyhole',
+                'details': {'is_unlocked': False}
+            })
+        else:
+            return "Error: host_core_add_env_object_to_gamestate API not found."
+
+        # 9. Log 'Genesis Engine: Initializing puzzles...'.
+        if 'host_log_message_to_world' in external_apis:
+            external_apis['host_log_message_to_world']({'message': 'Genesis Engine: Initializing puzzles...'})
+        else:
+            return "Error: host_log_message_to_world API not found."
+
+        # 10. Initialize Puzzle 'elemental_trial'
+        if 'host_core_initialize_puzzle_state' in external_apis:
+            external_apis['host_core_initialize_puzzle_state']({
+                'id': 'elemental_trial',
+                'initial_state': {'active_pedestals_count': 0, 'target_pedestals': 3, 'is_complete': False}
+            })
+        else:
+            return "Error: host_core_initialize_puzzle_state API not found."
+
+        # 11. Initialize Puzzle 'unreachable_vault'
+        if 'host_core_initialize_puzzle_state' in external_apis:
+            external_apis['host_core_initialize_puzzle_state']({
+                'id': 'unreachable_vault',
+                'initial_state': {'keyhole_unlocked': False, 'is_open': False}
+            })
+        else:
+            return "Error: host_core_initialize_puzzle_state API not found."
+
+        # 12. Log 'Genesis Engine: Creating artifacts...'.
+        if 'host_log_message_to_world' in external_apis:
+            external_apis['host_log_message_to_world']({'message': 'Genesis Engine: Creating artifacts...'})
+        else:
+            return "Error: host_log_message_to_world API not found."
+
+        # 13. Create Artifact 'Flaming Ember'
+        if 'host_core_add_artifact_to_gamestate' in external_apis:
+            external_apis['host_core_add_artifact_to_gamestate']({
+                'id': 'ember_01',
+                'name': 'Flaming Ember',
+                'description': 'A constantly burning ember.',
+                'properties': {'element_type': 'fire'},
+                'linked_dynamic_function_name': 'df_interact_with_pedestal'
+            })
+        else:
+            return "Error: host_core_add_artifact_to_gamestate API not found."
+
+        # 14. Create Artifact 'Water Droplet'
+        if 'host_core_add_artifact_to_gamestate' in external_apis:
+            external_apis['host_core_add_artifact_to_gamestate']({
+                'id': 'water_01',
+                'name': 'Water Droplet',
+                'description': 'A perfect, shimmering droplet.',
+                'properties': {'element_type': 'water'},
+                'linked_dynamic_function_name': 'df_interact_with_pedestal'
+            })
+        else:
+            return "Error: host_core_add_artifact_to_gamestate API not found."
+
+        # 15. Create Artifact 'Gust of Wind'
+        if 'host_core_add_artifact_to_gamestate' in external_apis:
+            external_apis['host_core_add_artifact_to_gamestate']({
+                'id': 'wind_01',
+                'name': 'Gust of Wind',
+                'description': 'Feels like a captured breeze.',
+                'properties': {'element_type': 'wind'},
+                'linked_dynamic_function_name': 'df_interact_with_pedestal'
+            })
+        else:
+            return "Error: host_core_add_artifact_to_gamestate API not found."
+
+        # 16. Create Artifact 'Vault Key'
+        if 'host_core_add_artifact_to_gamestate' in external_apis:
+            external_apis['host_core_add_artifact_to_gamestate']({
+                'id': 'key_01',
+                'name': 'Vault Key',
+                'description': 'A heavy key for the Unreachable Vault.',
+                'properties': {},
+                'linked_dynamic_function_name': 'df_use_vault_key'
+            })
+        else:
+            return "Error: host_core_add_artifact_to_gamestate API not found."
+
+        # 17. Create Artifact 'Orb of Ingenuity'
+        if 'host_core_add_artifact_to_gamestate' in external_apis:
+            external_apis['host_core_add_artifact_to_gamestate']({
+                'id': 'orb_01',
+                'name': 'Orb of Ingenuity',
+                'description': 'A crystal orb humming with potential.',
+                'properties': {},
+                'linked_dynamic_function_name': 'df_initiate_orb_tool_creation'
+            })
+        else:
+            return "Error: host_core_add_artifact_to_gamestate API not found."
+
+        # 18. Log 'Genesis Engine: World structure complete!'.
+        if 'host_log_message_to_world' in external_apis:
+            external_apis['host_log_message_to_world']({'message': 'Genesis Engine: World structure complete!'})
+        else:
+            return "Error: host_log_message_to_world API not found."
+
+        # Return success message
+        return 'World Genesis complete via df_genesis_engine!'
+
+    except Exception as error:
+        return f"Error executing df_genesis_engine: {error}"
+[DEBUG DynamicExecutor] Syntax validation passed for df_genesis_engine.
+[DEBUG DynamicExecutor] Upserting function 'df_genesis_engine' definition to Chroma DB...
+[DEBUG GLOBAL] Initial CMD 'create_dynamic_function' Result: Successfully created/updated dynamic function: df_genesis_engine
+[DEBUG GLOBAL] Initial Prompt CMD 5: df_genesis_engine with args: {}...
+[WORLD] Server: Executing df_genesis_engine to build the world...
+[DEBUG DynamicExecutor] Attempting to execute function: df_genesis_engine with params: {}...
+[DEBUG DynamicExecutor] Executing dynamically loaded function df_genesis_engine from string...
+[WORLD] Genesis Engine: Creating locations...
+[WORLD] Genesis Engine: Creating environment objects...
+[WORLD] Genesis Engine: Initializing puzzles...
+[WORLD] Genesis Engine: Creating artifacts...
+[WORLD] Genesis Engine: World structure complete!
+[WORLD] Server: df_genesis_engine execution finished. Result: World Genesis complete via df_genesis_engine!
+[DEBUG GLOBAL] Initial CMD 'df_genesis_engine' Result: World Genesis complete via df_genesis_engine!
+[DEBUG GLOBAL] Finished processing initial prompt commands.
+[DEBUG NnxHCjfF73I6n_kdAAAB] Genesis marked complete. Finalizing player setup.
+[DEBUG NnxHCjfF73I6n_kdAAAB] Finalizing setup for 3c972e7a-909c-4bac-822f-6c99674af13c post-genesis.
+[WORLD] DemoPlayer materializes in the newly formed 'Trial Chamber'.
+[WORLD] DemoPlayer obtained Flaming Ember.
+[WORLD] DemoPlayer obtained Water Droplet.
+[WORLD] DemoPlayer obtained Gust of Wind.
+[WORLD] DemoPlayer obtained Vault Key.
+[WORLD] DemoPlayer obtained Orb of Ingenuity.
+[DEBUG NnxHCjfF73I6n_kdAAAB] Spawning demo script execution.
+[DEBUG NnxHCjfF73I6n_kdAAAB] [DEMO] Starting script execution...
+[WORLD] [DEMO] Demo sequence initiated.
+[DEBUG NnxHCjfF73I6n_kdAAAB] [DEMO] Executing demo step 1: COMMENT
+[WORLD] [DEMO] Executing demo step 1: COMMENT
+[DEBUG NnxHCjfF73I6n_kdAAAB] [DEMO] Executing demo step 2: WAIT
+[WORLD] [DEMO] Executing demo step 2: WAIT
+[DEBUG NnxHCjfF73I6n_kdAAAB] [DEMO] DemoPlayer uses Flaming Ember on pedestal_fire.
+[WORLD] [DEMO] DemoPlayer uses Flaming Ember on pedestal_fire.
+[DEBUG NnxHCjfF73I6n_kdAAAB] Soul 3c972e7a-909c-4bac-822f-6c99674af13c using 'Flaming Ember' for 'df_interact_with_pedestal' with args: {"soul_id": "3c972e7a-909c-4bac-822f-6c99674af13c", "location_id": "trial_chamber", "artifact_id": "
+[DEBUG DynamicExecutor] Attempting to execute function: df_interact_with_pedestal with params: {"soul_id": "3c972e7a-909c-4bac-822f-6c99674af13c", "location_id": "trial_chamber", "artifact_id": "ember_01", "artifact_properties": {"element_type": "fire"}, "target_pedestal_id": "pedestal_fire"}...
+[DEBUG DynamicExecutor] Executing dynamically loaded function df_interact_with_pedestal from string...
+[WORLD] Effect applied to env object 'pedestal_fire': {"is_active": true, "last_element_placed": "fire"}
+[DEBUG NnxHCjfF73I6n_kdAAAB] Dynamic func 'df_interact_with_pedestal' result: fire placed on pedestal. It glows!
+[WORLD] [DEMO] Action result: fire placed on pedestal. It glows!
+[DEBUG NnxHCjfF73I6n_kdAAAB] [DEMO] Executing demo step 4: WAIT
+[WORLD] [DEMO] Executing demo step 4: WAIT
+[DEBUG NnxHCjfF73I6n_kdAAAB] [DEMO] DemoPlayer uses Water Droplet on pedestal_water.
+[WORLD] [DEMO] DemoPlayer uses Water Droplet on pedestal_water.
+[DEBUG NnxHCjfF73I6n_kdAAAB] Soul 3c972e7a-909c-4bac-822f-6c99674af13c using 'Water Droplet' for 'df_interact_with_pedestal' with args: {"soul_id": "3c972e7a-909c-4bac-822f-6c99674af13c", "location_id": "trial_chamber", "artifact_id": "
+[DEBUG DynamicExecutor] Attempting to execute function: df_interact_with_pedestal with params: {"soul_id": "3c972e7a-909c-4bac-822f-6c99674af13c", "location_id": "trial_chamber", "artifact_id": "water_01", "artifact_properties": {"element_type": "water"}, "target_pedestal_id": "pedestal_water"}...
+[DEBUG DynamicExecutor] Executing dynamically loaded function df_interact_with_pedestal from string...
+[WORLD] Effect applied to env object 'pedestal_water': {"is_active": true, "last_element_placed": "water"}
+[DEBUG NnxHCjfF73I6n_kdAAAB] Dynamic func 'df_interact_with_pedestal' result: water placed on pedestal. It glows!
+[WORLD] [DEMO] Action result: water placed on pedestal. It glows!
+[DEBUG NnxHCjfF73I6n_kdAAAB] [DEMO] Executing demo step 6: WAIT
+[WORLD] [DEMO] Executing demo step 6: WAIT
+[DEBUG NnxHCjfF73I6n_kdAAAB] [DEMO] DemoPlayer uses Gust of Wind on pedestal_wind.
+[WORLD] [DEMO] DemoPlayer uses Gust of Wind on pedestal_wind.
+[DEBUG NnxHCjfF73I6n_kdAAAB] Soul 3c972e7a-909c-4bac-822f-6c99674af13c using 'Gust of Wind' for 'df_interact_with_pedestal' with args: {"soul_id": "3c972e7a-909c-4bac-822f-6c99674af13c", "location_id": "trial_chamber", "artifact_id": "
+[DEBUG DynamicExecutor] Attempting to execute function: df_interact_with_pedestal with params: {"soul_id": "3c972e7a-909c-4bac-822f-6c99674af13c", "location_id": "trial_chamber", "artifact_id": "wind_01", "artifact_properties": {"element_type": "wind"}, "target_pedestal_id": "pedestal_wind"}...
+[DEBUG DynamicExecutor] Executing dynamically loaded function df_interact_with_pedestal from string...
+[WORLD] Effect applied to env object 'pedestal_wind': {"is_active": true, "last_element_placed": "wind"}
+[WORLD] The Elemental Trial is complete! The sealed door in the Trial Chamber rumbles open.
+[DEBUG NnxHCjfF73I6n_kdAAAB] Dynamic func 'df_interact_with_pedestal' result: All pedestals active! Trial complete!
+[WORLD] [DEMO] Action result: All pedestals active! Trial complete!
+[DEBUG NnxHCjfF73I6n_kdAAAB] [DEMO] Elemental Trial should be complete. Orb of Ingenuity acquired.
+[WORLD] [DEMO] Elemental Trial should be complete. Orb of Ingenuity acquired.
+[DEBUG NnxHCjfF73I6n_kdAAAB] [DEMO] DemoPlayer uses Orb of Ingenuity.
+[WORLD] [DEMO] DemoPlayer uses Orb of Ingenuity.
+[DEBUG NnxHCjfF73I6n_kdAAAB] Soul 3c972e7a-909c-4bac-822f-6c99674af13c using 'Orb of Ingenuity' for 'df_initiate_orb_tool_creation' with args: {"soul_id": "3c972e7a-909c-4bac-822f-6c99674af13c", "location_id": "trial_chamber", "artifact_id": "
+[DEBUG DynamicExecutor] Attempting to execute function: df_initiate_orb_tool_creation with params: {"soul_id": "3c972e7a-909c-4bac-822f-6c99674af13c", "location_id": "trial_chamber", "artifact_id": "orb_01", "artifact_properties": {}}...
+[DEBUG DynamicExecutor] Executing dynamically loaded function df_initiate_orb_tool_creation from string...
+[DEBUG NnxHCjfF73I6n_kdAAAB] Dynamic func 'df_initiate_orb_tool_creation' result: EVENT:PROMPT_USER_FOR_TOOL_DESCRIPTION
+[WORLD] [DEMO] Action result: EVENT:PROMPT_USER_FOR_TOOL_DESCRIPTION
+[DEBUG NnxHCjfF73I6n_kdAAAB] [DEMO] Executing demo step 10: WAIT
+[WORLD] [DEMO] Executing demo step 10: WAIT
+[DEBUG NnxHCjfF73I6n_kdAAAB] [DEMO] DemoPlayer describes tool: Create a temporary light bridge...
+[WORLD] [DEMO] DemoPlayer describes tool: Create a temporary light bridge...
+[DEBUG NnxHCjfF73I6n_kdAAAB] Attempting to create new tool function 'df_user_3c97_fcae' for: Create a temporary light bridge to the keyhole platform.
+[DEBUG DynamicExecutor] Attempting to execute function: create_dynamic_function with params: {"new_function_name": "df_user_3c97_fcae", "new_function_description": "Player described: 'Create a temporary light bridge to the keyhole platform.'. This function MUST create a temporary light bridge...
+[DEBUG DynamicExecutor] Executing special internal function: create_dynamic_function
+[DEBUG DynamicExecutor] Attempting to create dynamic function: df_user_3c97_fcae
+[DEBUG DynamicExecutor] Calling LLM (gemini-2.5-flash-preview-04-17) for function: df_user_3c97_fcae
+[DEBUG DynamicExecutor] Sanitized code for df_user_3c97_fcae:
+def df_user_3c97_fcae(params):
+    """
+    Player described: 'Create a temporary light bridge to the keyhole platform.'.
+    This function creates a temporary light bridge using the host API.
+    """
+    try:
+        # Ensure the required API is available
+        if 'host_create_temporary_object' not in external_apis:
+            return "Error: Required API 'host_create_temporary_object' not available."
+
+        # Get location_id from params, which is implicitly provided by the host
+        location_id = params.get('location_id')
+        if not location_id:
+            return "Error: 'location_id' not found in params."
+
+        # Prepare arguments for the host API call
+        api_args = {
+            'type': 'light_bridge',
+            'duration': 15,
+            'from_landmark_id': 'player_current_pos',
+            'to_landmark_id': 'keyhole_platform_exit',
+            'location_id': location_id
+        }
+
+        # Call the host API
+        result_string = external_apis['host_create_temporary_object'](api_args)
+
+        # Return the raw JSON string result directly as requested
+        return result_string
+
+    except KeyError as e:
+        # This should ideally be caught by the specific check for location_id,
+        # but included as a general safeguard.
+        return f"Error in df_user_3c97_fcae: Missing expected key in params: {e}"
+    except Exception as error:
+        # Catch any other unexpected errors during execution
+        return f"Error executing df_user_3c97_fcae: {error}"
+[DEBUG DynamicExecutor] Syntax validation passed for df_user_3c97_fcae.
+[DEBUG DynamicExecutor] Upserting function 'df_user_3c97_fcae' definition to Chroma DB...
+[WORLD] DemoPlayer obtained Orb: Create a temporary light ....
+[WORLD] DemoPlayer: The Orb of Ingenuity glows! You've learned to manifest 'Orb: Create a temporary light ...'!
+[WORLD] [DEMO] Tool description result: The Orb of Ingenuity glows! You've learned to manifest 'Orb: Create a temporary light ...'!
+[DEBUG NnxHCjfF73I6n_kdAAAB] [DEMO] New artifact 'Orb: Create a temporary l...' should be created and given.
+[WORLD] [DEMO] New artifact 'Orb: Create a temporary l...' should be created and given.
+[DEBUG NnxHCjfF73I6n_kdAAAB] [DEMO] DemoPlayer uses the newly created light bridge Orb.
+[WORLD] [DEMO] DemoPlayer uses the newly created light bridge Orb.
+[DEBUG NnxHCjfF73I6n_kdAAAB] Soul 3c972e7a-909c-4bac-822f-6c99674af13c using 'Orb: Create a temporary light ...' for 'df_user_3c97_fcae' with args: {"soul_id": "3c972e7a-909c-4bac-822f-6c99674af13c", "location_id": "trial_chamber", "artifact_id": "
+[DEBUG DynamicExecutor] Attempting to execute function: df_user_3c97_fcae with params: {"soul_id": "3c972e7a-909c-4bac-822f-6c99674af13c", "location_id": "trial_chamber", "artifact_id": "charged_orb_06598a08", "artifact_properties": {"creator_soul_id": "3c972e7a-909c-4bac-822f-6c99674af...
+[DEBUG DynamicExecutor] Executing dynamically loaded function df_user_3c97_fcae from string...
+[WORLD] A light_bridge appeared from 'player_current_pos' to 'keyhole_platform_exit' in Trial Chamber. It will last 15s.
+[DEBUG NnxHCjfF73I6n_kdAAAB] Dynamic func 'df_user_3c97_fcae' result: {"message": "light_bridge created to 'keyhole_platform_exit'."}
+[WORLD] [DEMO] Action result: light_bridge created to 'keyhole_platform_exit'.
+[DEBUG NnxHCjfF73I6n_kdAAAB] [DEMO] Light bridge to keyhole platform should be active.
+[WORLD] [DEMO] Light bridge to keyhole platform should be active.
+[DEBUG NnxHCjfF73I6n_kdAAAB] [DEMO] DemoPlayer uses Vault Key at Vault Approach.
+[WORLD] [DEMO] DemoPlayer uses Vault Key at Vault Approach.
+[DEBUG NnxHCjfF73I6n_kdAAAB] Soul 3c972e7a-909c-4bac-822f-6c99674af13c using 'Vault Key' for 'df_use_vault_key' with args: {"soul_id": "3c972e7a-909c-4bac-822f-6c99674af13c", "location_id": "trial_chamber", "artifact_id": "
+[DEBUG DynamicExecutor] Attempting to execute function: df_use_vault_key with params: {"soul_id": "3c972e7a-909c-4bac-822f-6c99674af13c", "location_id": "trial_chamber", "artifact_id": "key_01", "artifact_properties": {}}...
+[DEBUG DynamicExecutor] Executing dynamically loaded function df_use_vault_key from string...
+[DEBUG NnxHCjfF73I6n_kdAAAB] Dynamic func 'df_use_vault_key' result: Can only use Vault Key at the Vault Approach.
+[WORLD] [DEMO] Action result: Can only use Vault Key at the Vault Approach.
+[DEBUG NnxHCjfF73I6n_kdAAAB] [DEMO] Vault door should open. Demo complete!
+[WORLD] [DEMO] Vault door should open. Demo complete!
+[DEBUG NnxHCjfF73I6n_kdAAAB] [DEMO] Script finished.
+[WORLD] [DEMO] Demo sequence complete.
+^C[SERVER] SIGINT received, saving game state before exit...
+[SERVER] Saving game state...
+[SERVER] Game state saved.
+[WORLD] DemoPlayer disconnected.
+
+
+
+
+
+World Log
+Effect applied to env object 'pedestal_wind': {"is_active": true, "last_element_placed": "wind"}
+
+The Elemental Trial is complete! The sealed door in the Trial Chamber rumbles open.
+
+[DEMO] Action result: All pedestals active! Trial complete!
+
+[DEMO] Elemental Trial should be complete. Orb of Ingenuity acquired.
+
+[DEMO] DemoPlayer uses Orb of Ingenuity.
+
+[DEMO] Action result: EVENT:PROMPT_USER_FOR_TOOL_DESCRIPTION
+
+[DEMO] Executing demo step 10: WAIT
+
+[DEMO] DemoPlayer describes tool: Create a temporary light bridge...
+
+DemoPlayer obtained Orb: Create a temporary light ....
+
+DemoPlayer: The Orb of Ingenuity glows! You've learned to manifest 'Orb: Create a temporary light ...'!
+
+[DEMO] Tool description result: The Orb of Ingenuity glows! You've learned to manifest 'Orb: Create a temporary light ...'!
+
+[DEMO] New artifact 'Orb: Create a temporary l...' should be created and given.
+
+[DEMO] DemoPlayer uses the newly created light bridge Orb.
+
+A light_bridge appeared from 'player_current_pos' to 'keyhole_platform_exit' in Trial Chamber. It will last 15s.
+
+[DEMO] Action result: light_bridge created to 'keyhole_platform_exit'.
+
+[DEMO] Light bridge to keyhole platform should be active.
+
+[DEMO] DemoPlayer uses Vault Key at Vault Approach.
+
+[DEMO] Action result: Can only use Vault Key at the Vault Approach.
+
+[DEMO] Vault door should open. Demo complete!
+
+[DEMO] Demo sequence complete.
+
+DemoPlayer (ID: 307cd780-7f98-43d5-ab6c-b717891b41cd)
+Location: Trial Chamber
+An ancient chamber with three pedestals: Flame, Water, and Wind. A sealed stone door blocks the exit. The once sealed stone door now stands open.
+Exits: None
+Landmarks: flame_pedestal_loc: "Flame Pedestal"; water_pedestal_loc: "Water Pedestal"; wind_pedestal_loc: "Wind Pedestal"; sealed_door_exit: "Sealed stone door"
+Temporary Notes: light_bridge to keyhole_platform_exit (expires soon)
+Inventory: Flaming Ember, Water Droplet, Gust of Wind, Vault Key, Orb of Ingenuity, Orb: Create a temporary light ...
+Available Actions (Inventory)
+Flaming Ember
+A constantly burning ember.
+Water Droplet
+A perfect, shimmering droplet.
+Gust of Wind
+Feels like a captured breeze.
+Vault Key
+A heavy key for the Unreachable Vault.
+Orb of Ingenuity
+A crystal orb humming with potential.
+Orb: Create a temporary light ...
+The Orb of Ingenuity, now resonating with the power to: Create a temporary light bridge to the keyhole platform.
+[SERVER DEBUG] DemoPlayer connected (307cd780-7f98-43d5-ab6c-b717891b41cd). SID F862BB4mgQ97UTsDAAAB.
+[SERVER DEBUG] First demo player connected. Initiating world genesis via initial_prompt.json.
+Assigned Player Soul ID: 307cd780-7f98-43d5-ab6c-b717891b41cd
+Connected with socket ID: F862BB4mgQ97UTsDAAAB
+[SERVER DEBUG] Processing initial prompt file: initial_prompt.json
+[SERVER DEBUG] Initial Prompt CMD 1: create_dynamic_function with args: {"new_function_name": "df_initiate_orb_tool_creation", "new_function_description": "This function is...
+Received gameStateUpdate
+Received 0 available actions from inventory.
+[SERVER DEBUG] Initial CMD 'create_dynamic_function' Result: Successfully created/updated dynamic function: df_initiate_orb_tool_creation
+[SERVER DEBUG] Initial Prompt CMD 2: create_dynamic_function with args: {"new_function_name": "df_interact_with_pedestal", "new_function_description": "Player uses an eleme...
+[SERVER DEBUG] Initial CMD 'create_dynamic_function' Result: Successfully created/updated dynamic function: df_interact_with_pedestal
+[SERVER DEBUG] Initial Prompt CMD 3: create_dynamic_function with args: {"new_function_name": "df_use_vault_key", "new_function_description": "Player uses the Vault Key. Ne...
+[SERVER DEBUG] Initial CMD 'create_dynamic_function' Result: Successfully created/updated dynamic function: df_use_vault_key
+[SERVER DEBUG] Initial Prompt CMD 4: create_dynamic_function with args: {"new_function_name": "df_genesis_engine", "new_function_description": "This function creates the en...
+[SERVER DEBUG] Initial CMD 'create_dynamic_function' Result: Successfully created/updated dynamic function: df_genesis_engine
+[SERVER DEBUG] Initial Prompt CMD 5: df_genesis_engine with args: {}...
+Received gameStateUpdate
+Received gameStateUpdate
+Received gameStateUpdate
+Received gameStateUpdate
+Received gameStateUpdate
+Received gameStateUpdate
+Received gameStateUpdate
+[SERVER DEBUG] Initial CMD 'df_genesis_engine' Result: World Genesis complete via df_genesis_engine!
+[SERVER DEBUG] Finished processing initial prompt commands.
+[SERVER DEBUG] Genesis marked complete. Finalizing player setup.
+[SERVER DEBUG] Finalizing setup for 307cd780-7f98-43d5-ab6c-b717891b41cd post-genesis.
+Received gameStateUpdate
+Received gameStateUpdate
+Received gameStateUpdate
+Received gameStateUpdate
+Received gameStateUpdate
+Received gameStateUpdate
+Received gameStateUpdate
+Received 5 available actions from inventory.
+[SERVER DEBUG] Spawning demo script execution.
+[SERVER DEBUG] [DEMO] Starting script execution...
+Received gameStateUpdate
+[SERVER DEBUG] [DEMO] Executing demo step 1: COMMENT
+Received gameStateUpdate
+Received gameStateUpdate
+Received 5 available actions from inventory.
+[SERVER DEBUG] [DEMO] Executing demo step 2: WAIT
+Received gameStateUpdate
+Received gameStateUpdate
+Received 5 available actions from inventory.
+[SERVER DEBUG] [DEMO] DemoPlayer uses Flaming Ember on pedestal_fire.
+Received gameStateUpdate
+[SERVER DEBUG] Soul 307cd780-7f98-43d5-ab6c-b717891b41cd using 'Flaming Ember' for 'df_interact_with_pedestal' with args: {"soul_id": "307cd780-7f98-43d5-ab6c-b717891b41cd", "location_id": "trial_chamber", "artifact_id": "
+Received gameStateUpdate
+[SERVER DEBUG] Dynamic func 'df_interact_with_pedestal' result: fire placed on pedestal. It glows!
+Received gameStateUpdate
+Received gameStateUpdate
+Received 5 available actions from inventory.
+[SERVER DEBUG] [DEMO] Executing demo step 4: WAIT
+Received gameStateUpdate
+Received gameStateUpdate
+Received 5 available actions from inventory.
+[SERVER DEBUG] [DEMO] DemoPlayer uses Water Droplet on pedestal_water.
+Received gameStateUpdate
+[SERVER DEBUG] Soul 307cd780-7f98-43d5-ab6c-b717891b41cd using 'Water Droplet' for 'df_interact_with_pedestal' with args: {"soul_id": "307cd780-7f98-43d5-ab6c-b717891b41cd", "location_id": "trial_chamber", "artifact_id": "
+Received gameStateUpdate
+[SERVER DEBUG] Dynamic func 'df_interact_with_pedestal' result: water placed on pedestal. It glows!
+Received gameStateUpdate
+Received gameStateUpdate
+Received 5 available actions from inventory.
+[SERVER DEBUG] [DEMO] Executing demo step 6: WAIT
+Received gameStateUpdate
+Received gameStateUpdate
+Received 5 available actions from inventory.
+[SERVER DEBUG] [DEMO] DemoPlayer uses Gust of Wind on pedestal_wind.
+Received gameStateUpdate
+[SERVER DEBUG] Soul 307cd780-7f98-43d5-ab6c-b717891b41cd using 'Gust of Wind' for 'df_interact_with_pedestal' with args: {"soul_id": "307cd780-7f98-43d5-ab6c-b717891b41cd", "location_id": "trial_chamber", "artifact_id": "
+Received gameStateUpdate
+Received gameStateUpdate
+[SERVER DEBUG] Dynamic func 'df_interact_with_pedestal' result: All pedestals active! Trial complete!
+Received gameStateUpdate
+Received gameStateUpdate
+Received 5 available actions from inventory.
+[SERVER DEBUG] [DEMO] Elemental Trial should be complete. Orb of Ingenuity acquired.
+Received gameStateUpdate
+Received gameStateUpdate
+Received 5 available actions from inventory.
+[SERVER DEBUG] [DEMO] DemoPlayer uses Orb of Ingenuity.
+Received gameStateUpdate
+[SERVER DEBUG] Soul 307cd780-7f98-43d5-ab6c-b717891b41cd using 'Orb of Ingenuity' for 'df_initiate_orb_tool_creation' with args: {"soul_id": "307cd780-7f98-43d5-ab6c-b717891b41cd", "location_id": "trial_chamber", "artifact_id": "
+[SERVER DEBUG] Dynamic func 'df_initiate_orb_tool_creation' result: EVENT:PROMPT_USER_FOR_TOOL_DESCRIPTION
+Received gameStateUpdate
+Received gameStateUpdate
+Received 5 available actions from inventory.
+[SERVER DEBUG] [DEMO] Executing demo step 10: WAIT
+Received gameStateUpdate
+Received gameStateUpdate
+Received 5 available actions from inventory.
+[SERVER DEBUG] [DEMO] DemoPlayer describes tool: Create a temporary light bridge...
+Received gameStateUpdate
+[SERVER DEBUG] Attempting to create new tool function 'df_user_307c_1c37' for: Create a temporary light bridge to the keyhole platform.
+Received gameStateUpdate
+Received gameStateUpdate
+Received gameStateUpdate
+Received gameStateUpdate
+Received 6 available actions from inventory.
+[SERVER DEBUG] [DEMO] New artifact 'Orb: Create a temporary l...' should be created and given.
+Received gameStateUpdate
+Received gameStateUpdate
+Received 6 available actions from inventory.
+[SERVER DEBUG] [DEMO] DemoPlayer uses the newly created light bridge Orb.
+Received gameStateUpdate
+[SERVER DEBUG] Soul 307cd780-7f98-43d5-ab6c-b717891b41cd using 'Orb: Create a temporary light ...' for 'df_user_307c_1c37' with args: {"soul_id": "307cd780-7f98-43d5-ab6c-b717891b41cd", "location_id": "trial_chamber", "artifact_id": "
+Received gameStateUpdate
+[SERVER DEBUG] Dynamic func 'df_user_307c_1c37' result: {"message": "light_bridge created to 'keyhole_platform_exit'."}
+Received gameStateUpdate
+Received gameStateUpdate
+Received 6 available actions from inventory.
+[SERVER DEBUG] [DEMO] Light bridge to keyhole platform should be active.
+Received gameStateUpdate
+Received gameStateUpdate
+Received 6 available actions from inventory.
+[SERVER DEBUG] [DEMO] DemoPlayer uses Vault Key at Vault Approach.
+Received gameStateUpdate
+[SERVER DEBUG] Soul 307cd780-7f98-43d5-ab6c-b717891b41cd using 'Vault Key' for 'df_use_vault_key' with args: {"soul_id": "307cd780-7f98-43d5-ab6c-b717891b41cd", "location_id": "trial_chamber", "artifact_id": "
+[SERVER DEBUG] Dynamic func 'df_use_vault_key' result: Can only use Vault Key at the Vault Approach.
+Received gameStateUpdate
+Received gameStateUpdate
+Received 6 available actions from inventory.
+[SERVER DEBUG] [DEMO] Vault door should open. Demo complete!
+Received gameStateUpdate
+Received gameStateUpdate
+Received 6 available actions from inventory.
+[SERVER DEBUG] [DEMO] Script finished.
+Received gameStateUpdate

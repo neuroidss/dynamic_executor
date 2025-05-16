@@ -1,0 +1,89 @@
+[
+  {
+    "action": "COMMENT",
+    "text": "Player starts in Trial Chamber with elemental artifacts and Vault Key."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 1500
+  },
+  {
+    "action": "USE_ARTIFACT",
+    "artifact_name": "Flaming Ember",
+    "args": {
+      "target_pedestal_id": "pedestal_fire"
+    },
+    "log_message": "DemoPlayer uses Flaming Ember on pedestal_fire."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 2000
+  },
+  {
+    "action": "USE_ARTIFACT",
+    "artifact_name": "Water Droplet",
+    "args": {
+      "target_pedestal_id": "pedestal_water"
+    },
+    "log_message": "DemoPlayer uses Water Droplet on pedestal_water."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 2000
+  },
+  {
+    "action": "USE_ARTIFACT",
+    "artifact_name": "Gust of Wind",
+    "args": {
+      "target_pedestal_id": "pedestal_wind"
+    },
+    "log_message": "DemoPlayer uses Gust of Wind on pedestal_wind."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 3000,
+    "log_message": "Elemental Trial should be complete. Orb of Ingenuity acquired."
+  },
+  {
+    "action": "USE_ARTIFACT",
+    "artifact_name": "Orb of Ingenuity",
+    "args": {},
+    "log_message": "DemoPlayer uses Orb of Ingenuity."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 1000
+  },
+  {
+    "action": "DESCRIBE_TOOL",
+    "description": "Create a temporary light bridge to the keyhole platform.",
+    "log_message": "DemoPlayer describes tool: Create a temporary light bridge..."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 4000,
+    "log_message": "New artifact 'Orb: Create a temporary l...' should be created and given."
+  },
+  {
+    "action": "USE_ARTIFACT",
+    "artifact_name_starts_with": "Orb: Create a temporary l",
+    "args": {},
+    "log_message": "DemoPlayer uses the newly created light bridge Orb."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 3000,
+    "log_message": "Light bridge to keyhole platform should be active."
+  },
+  {
+    "action": "USE_ARTIFACT",
+    "artifact_name": "Vault Key",
+    "args": {},
+    "log_message": "DemoPlayer uses Vault Key at Vault Approach."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 3000,
+    "log_message": "Vault door should open. Demo complete!"
+  }
+]
