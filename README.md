@@ -104,8 +104,8 @@ The system comprises a simple web-based frontend, a Python backend server, and a
 
 2.  **Clone the repository:**
     ```bash
-    git clone <repository_url>
-    cd <repository_directory>
+    git clone https://github.com/neuroidss/dynamic_executor
+    cd dynamic_executor
     ```
 
 3.  **Create a virtual environment and install dependencies:**
@@ -119,8 +119,8 @@ The system comprises a simple web-based frontend, a Python backend server, and a
     Create a `.env` file in the project root with the following (adjust values as necessary):
     ```env
     GEMINI_API_KEY="your_gemini_api_key"
-    OPENAI_API_BASE_URL="your_openai_compatible_base_url_for_gemini" # e.g., https://generativelanguage.googleapis.com/v1beta/models
-    OPENAI_LLM_MODEL="gemini-1.5-flash-latest" # Or your specific Gemini model
+    OPENAI_API_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai"
+    OPENAI_LLM_MODEL="gemini-2.5-flash-preview-04-17" # Or your specific Gemini model
     LANGCHAIN_EMBEDDING_MODEL="models/embedding-001" # Or your preferred embedding model
     CHROMA_URL="http://localhost:8000" # URL of your ChromaDB instance
     PORT="3001"
@@ -164,7 +164,6 @@ The system comprises a simple web-based frontend, a Python backend server, and a
 ├── index.html                # Frontend UI for the game
 ├── requirements.txt          # Python dependencies
 ├── run.txt                   # Example console output from a demo run
-├── submission-template.md    # Hackathon submission template (to be filled)
 └── README.md                 # This file
 ```
 
