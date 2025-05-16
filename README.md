@@ -121,7 +121,7 @@ The system comprises a simple web-based frontend, a Python backend server, and a
     GEMINI_API_KEY="your_gemini_api_key"
     OPENAI_API_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai"
     OPENAI_LLM_MODEL="gemini-2.5-flash-preview-04-17" # Or your specific Gemini model
-    LANGCHAIN_EMBEDDING_MODEL="models/embedding-001" # Or your preferred embedding model
+    LANGCHAIN_EMBEDDING_MODEL="models/text-embedding-004" # Or your preferred embedding model
     CHROMA_URL="http://localhost:8000" # URL of your ChromaDB instance
     PORT="3001"
     ```
