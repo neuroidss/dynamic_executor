@@ -1,4 +1,3 @@
-
 import os
 import json
 import re
@@ -8,6 +7,8 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from dotenv import load_dotenv
 from urllib.parse import urlparse
 import traceback # Added for LLM repair hook
+
+import uuid
 
 load_dotenv()
 
@@ -19,6 +20,7 @@ LANGCHAIN_EMBEDDING_MODEL = os.environ.get("LANGCHAIN_EMBEDDING_MODEL")
 CHROMA_URL = os.environ.get("CHROMA_URL")
 
 FUNCTION_COLLECTION_NAME = "dynamic_functions" # Stores definitions of LLM-generated functions
+MAX_SYNTAX_REPAIR_RETRIES = 2 # Number of retries for syntax errors
 
 if not GEMINI_API_KEY: raise ValueError("GEMINI_API_KEY not set")
 if not OPENAI_API_BASE_URL: raise ValueError("OPENAI_API_BASE_URL not set")
@@ -61,8 +63,8 @@ FUNCTION_CREATION_TOOL_DEFINITION = {
 }
 
 
-def generate_function_creation_prompt(name, description, parameters_schema, host_provided_api_description=None):
-    """Generates the prompt for the LLM to create a Python function string."""
+def generate_function_creation_prompt(name, description, parameters_schema, host_provided_api_description=None, is_repair=False, previous_code=None, error_message=None):
+    """Generates the prompt for the LLM to create or repair a Python function string."""
     if not parameters_schema or not isinstance(parameters_schema, dict) or \
        parameters_schema.get('type') != 'object' or not isinstance(parameters_schema.get('properties'), dict):
         raise ValueError("Invalid parameters_schema provided for new function creation.")
@@ -108,32 +110,75 @@ def generate_function_creation_prompt(name, description, parameters_schema, host
 def {function_name}(params):
     # `params` is a dictionary passed by the host environment.
     # It contains arguments as defined in your function's parameters_schema.
-    # It might also contain additional contextual data from the host (e.g., params.get('soul_id'), params.get('artifact_properties')).
-    # Remember, if a host API returns a JSON string, use `json.loads()` to parse it.
+    # It might also contain additional contextual data from the host.
+    #
+    # NECESSARY IMPORTS: If you use modules like `uuid` for `uuid.uuid4()`,
+    # you MUST include `import uuid` at the START of this function body.
+    # Similarly for `json` (`import json`) if needed for complex JSON manipulation,
+    # though basic `json.loads()` on API results is often directly available.
 
     try:
         # CORRECT INDENTATION IS CRITICAL.
-        # Example:
-        #   required_data = params['my_required_param'] # Access required param
-        #   optional_data = params.get('my_optional_param', 'default_value') # Access optional param
+        # Example of accessing params and calling a host API:
+        #   import uuid # Example import
+        #   required_data = params['my_required_param']
+        #   optional_data = params.get('my_optional_param', 'default_value')
+        #   unique_id_for_something = str(uuid.uuid4())
         #   
         #   if 'host_api_example' in external_apis:
-        #       api_args = {{'data_for_api': required_data, 'user_context': params.get('soul_id')}}
+        #       api_args = {{'data_for_api': required_data, 'context': params.get('soul_id'), 'id': unique_id_for_something}}
         #       host_result_str = external_apis['host_api_example'](api_args)
-        #       # host_data = json.loads(host_result_str) # If API returns JSON string
-        #       return f"Host API said: {{host_result_str}}"
+        #       # If API returns JSON string:
+        #       # host_data = json.loads(host_result_str) 
+        #       # return f"Host API said: {{host_data.get('message', host_result_str)}}"
+        #       return f"Host API result: {{host_result_str}}"
         #   else:
-        #       return f"Logic for {function_name} with {{required_data}}. No host API call needed or API not found."
+        #       return f"Logic for {function_name} with {{required_data}}. No host API call made or API not found."
 
         # Replace the above example with your actual logic.
+        # Ensure all paths return a string.
         return f"Function '{function_name}' executed. Input params: {{str(params)}}. Implement your logic here."
 
     except KeyError as e:
+        # Handle missing required parameters from `params`
         return f"Error in {function_name}: Missing expected key in params: {{e}}"
     except Exception as error:
+        # Catch any other unexpected errors during execution
         return f"Error executing {function_name}: {{error}}"
 """
     example_code_structure = example_code_structure_template.format(function_name=name)
+
+    if is_repair:
+        return f"""You are an expert Python function generator. The Python code you previously generated for function '{name}' had a syntax error:
+{error_message}
+
+The faulty code was:
+```python
+{previous_code}
+```
+
+Please correct this specific syntax error and provide the complete, valid Python function code again.
+**CRITICAL Instructions for Python Code Generation (Reminder):**
+1.  Write a single Python function named precisely `{name}`.
+2.  The function MUST accept a single argument: a dictionary named `params`.
+3.  Every `try` block MUST be correctly paired with at least one `except Exception as e:` block or a `finally:` block.
+4.  If you use modules like `uuid` (e.g., for `uuid.uuid4()`), you MUST include the `import uuid` statement at the beginning of the function body.
+5.  Do NOT include any comments, explanations, or surrounding text outside the function definition itself. Output only the `def {name}(params): ...` block.
+6.  Do NOT include markdown code block markers (e.g., ```python or ```) in your output.
+7.  The function should perform the action described in its original high-level description: {description}
+8.  Original Parameters Schema (for the 'params' argument):
+    ```json
+    {json.dumps(parameters_schema, indent=2)}
+    ```
+9.  Available Host APIs (in `external_apis` dictionary) if needed:
+    ```
+    {host_provided_api_description if host_provided_api_description else "No specific host APIs were described for the original task."}
+    ```
+10. Ensure all Python syntax, especially indentation, is flawless.
+
+**Your Task:**
+Generate *only* the corrected Python function code for `{name}`.
+"""
 
     return f"""You are an expert Python function generator. Your task is to create a single, standalone Python function string based on the provided specification.
 
@@ -153,21 +198,22 @@ def {function_name}(params):
     3.  The function should perform the action described in its high-level description, primarily by calling functions from the `external_apis` dictionary.
     4.  The function MUST return a single string indicating the result or outcome.
     5.  **PYTHON INDENTATION IS PARAMOUNT!** Ensure all logic, especially within `try` and `except` blocks, is correctly indented.
-    6.  Do NOT include any comments, explanations, or surrounding text outside the function definition itself. Output only the `def {name}(params): ...` block.
-    7.  Do NOT include markdown code block markers (e.g., ```python or ```) in your output.
-    8.  Handle potential errors gracefully. Return an informative error string starting with "Error: ".
-    9.  **Remember**: If a host API is documented to return a JSON string, you MUST use `json.loads(result_string)` to parse it into a Python dictionary or list before accessing its elements. The `json` module is available.
+    6.  Every `try` block MUST be correctly paired with at least one `except Exception as e:` block or a `finally:` block. Handle errors by returning an informative error string starting with "Error: " from the `except` block (e.g., `return f"Error in {name}: Missing key {{e}}"` or `return f"Error executing {name}: {{error}}"`).
+    7.  If you use modules like `uuid` (e.g., for `uuid.uuid4()`), you MUST include the `import uuid` statement at the beginning of the function body. Similarly for `json` (`import json`) if needed for complex JSON manipulation, although simple `json.loads()` on API results is often directly usable.
+    8.  Do NOT include any comments, explanations, or surrounding text outside the function definition itself. Output only the `def {name}(params): ...` block.
+    9.  Do NOT include markdown code block markers (e.g., ```python or ```) in your output.
+    10. **Remember**: If a host API is documented to return a JSON string, you MUST use `json.loads(result_string)` to parse it into a Python dictionary or list before accessing its elements. The `json` module is available (either via `import json` or potentially directly via `external_apis` if provided by host).
 
     **Schema Parameter Access Examples (from `params` dictionary):**
     {param_access_section}
 
-    **Example Function Structure (Pay ATTENTION to INDENTATION and json.loads):**
+    **Example Function Structure (Pay ATTENTION to INDENTATION, IMPORTS, and complete try-except blocks):**
     ```python
 {example_code_structure.strip()}
     ```
 
     **Your Task:**
-    Generate *only* the Python function code for `{name}` based *exactly* on the specification provided above. Ensure all Python syntax, especially indentation, is flawless.
+    Generate *only* the Python function code for `{name}` based *exactly* on the specification provided above. Ensure all Python syntax, especially indentation and complete `try-except` blocks, is flawless.
     """
 
 
@@ -245,42 +291,63 @@ class DynamicFunctionExecutor:
         self.debug_log(f"Attempting to create dynamic function: {new_function_name}")
         if not all([new_function_name, new_function_description, new_function_parameters_schema]):
             return "Error: Missing required arguments for function creation."
-        if not new_function_name.isidentifier() or new_function_name in ["params", "external_apis", "json"]: # "json" added to reserved
+        if not new_function_name.isidentifier() or new_function_name in ["params", "external_apis", "json", "uuid"]:
             return f"Error: Invalid or reserved function name '{new_function_name}'."
 
-        try:
-            prompt = generate_function_creation_prompt(new_function_name, new_function_description, new_function_parameters_schema, host_provided_api_description)
-        except ValueError as e:
-            return f"Error: Invalid parameters_schema: {e}"
-        except Exception as e:
-            print(f"Error during prompt generation for {new_function_name}: {e}")
-            return f"Error: Failed to generate prompt for {new_function_name}. {e}"
+        generated_code_string = ""
+        last_error = None
 
-        generated_code_string = "" 
-        try:
-            self.debug_log(f"Calling LLM ({OPENAI_LLM_MODEL}) for function: {new_function_name}")
-            response = self.openai_client.chat.completions.create(
-                model=OPENAI_LLM_MODEL, messages=[{'role': 'user', 'content': prompt}], temperature=0.0
-            )
+        for attempt in range(MAX_SYNTAX_REPAIR_RETRIES + 1):
+            try:
+                if attempt == 0: # First attempt
+                    prompt = generate_function_creation_prompt(
+                        new_function_name, new_function_description, new_function_parameters_schema,
+                        host_provided_api_description
+                    )
+                else: # Repair attempt
+                    self.debug_log(f"Syntax repair attempt {attempt} for {new_function_name}.")
+                    prompt = generate_function_creation_prompt(
+                        new_function_name, new_function_description, new_function_parameters_schema,
+                        host_provided_api_description,
+                        is_repair=True, previous_code=generated_code_string, error_message=str(last_error)
+                    )
 
-            if response.choices and len(response.choices) > 0 and response.choices[0].message:
-                generated_code_string = response.choices[0].message.content.strip()
-            else:
-                self.debug_log(f"LLM response problematic. Response: {response}")
-                raise Exception("LLM response did not contain expected choices or message content.")
+                self.debug_log(f"Calling LLM ({OPENAI_LLM_MODEL}) for function: {new_function_name} (Attempt: {attempt+1})")
+                response = self.openai_client.chat.completions.create(
+                    model=OPENAI_LLM_MODEL, messages=[{'role': 'user', 'content': prompt}], temperature=0.0
+                )
 
-            if not generated_code_string: raise Exception("LLM returned empty code string.")
+                if response.choices and len(response.choices) > 0 and response.choices[0].message:
+                    generated_code_string = response.choices[0].message.content.strip()
+                else:
+                    self.debug_log(f"LLM response problematic. Response: {response}")
+                    last_error = Exception("LLM response did not contain expected choices or message content.")
+                    continue # Retry if possible
 
-            sanitized_code = self._sanitize_generated_code(generated_code_string, new_function_name)
-            self.debug_log(f"Sanitized code for {new_function_name}:\n{sanitized_code}")
+                if not generated_code_string:
+                    last_error = Exception("LLM returned empty code string.")
+                    continue # Retry if possible
 
-            # Test compilation
-            compile(sanitized_code, '<string>', 'exec')
-            self.debug_log(f"Syntax validation passed for {new_function_name}.")
+                sanitized_code = self._sanitize_generated_code(generated_code_string, new_function_name)
+                self.debug_log(f"Sanitized code for {new_function_name} (Attempt {attempt+1}):\n{sanitized_code}")
 
-        except Exception as error:
-            print(f"Error during LLM code generation/validation for {new_function_name}: {error}")
-            return f"Error: Failed to generate/validate code for {new_function_name}. {error}"
+                compile(sanitized_code, '<string>', 'exec') # Test compilation
+                self.debug_log(f"Syntax validation passed for {new_function_name} on attempt {attempt+1}.")
+                last_error = None # Clear last error if compilation succeeded
+                break # Success, exit retry loop
+
+            except SyntaxError as se:
+                self.debug_log(f"SyntaxError during LLM code generation/validation for {new_function_name} (Attempt {attempt+1}): {se}")
+                last_error = se
+            except Exception as e:
+                self.debug_log(f"Non-SyntaxError during LLM code generation/validation for {new_function_name} (Attempt {attempt+1}): {e}")
+                last_error = e
+                break # Don't retry for non-syntax errors during generation call itself
+
+        if last_error: # If all retries failed or a non-syntax error occurred
+            error_message = f"Error: Failed to generate/validate code for {new_function_name} after {attempt + 1} attempt(s). Last error: {last_error}"
+            print(error_message)
+            return error_message
 
         try:
             self.debug_log(f"Upserting function '{new_function_name}' definition to Chroma DB...")
@@ -292,7 +359,7 @@ class DynamicFunctionExecutor:
                     'name': new_function_name,
                     'description': new_function_description,
                     'parameters_schema_json': json.dumps(new_function_parameters_schema),
-                    'code_string': sanitized_code,
+                    'code_string': sanitized_code, # Use the successfully compiled code
                     'is_internal_special_function': False
                 }],
                 documents=[f"Dynamic function: {new_function_name}. {new_function_description}"]
@@ -301,21 +368,20 @@ class DynamicFunctionExecutor:
         except Exception as db_error:
             return f"Error: Failed to store function definition {new_function_name}. {db_error}"
 
+
     def _sanitize_generated_code(self, code_string, function_name):
         sanitized = code_string.replace('```python', '').replace('```', '').strip()
-        # Try to extract only the function definition block if LLM includes extra text
         match = re.search(rf"^(def\s+{function_name}\s*\(\s*params\s*\):.*?)(?:\n\s*def\s|\n\n\n|\Z)", sanitized, re.DOTALL | re.MULTILINE)
-        block_to_return = sanitized # Default to the whole sanitized string
+        block_to_return = sanitized 
         if match:
             block = match.group(1).strip()
-            # Ensure the extracted block actually starts with the function definition
             if block.startswith(f"def {function_name}(params):"):
                 block_to_return = block
-            else: # If regex was too greedy or pattern is off, try a simpler find
+            else: 
                 direct_def_start = f"def {function_name}(params):"
                 start_index = sanitized.find(direct_def_start)
                 if start_index != -1:
-                    block_to_return = sanitized[start_index:] # Take from def onwards
+                    block_to_return = sanitized[start_index:] 
         elif not sanitized.startswith(f"def {function_name}(params):"):
              self.debug_log(f"Warning: Sanitized code for {function_name} does not start with expected def statement. Using as-is. Code: {sanitized[:200]}...")
 
@@ -349,8 +415,6 @@ class DynamicFunctionExecutor:
                 'description': FUNCTION_CREATION_TOOL_DEFINITION['function']['description'],
                 'parameters': FUNCTION_CREATION_TOOL_DEFINITION['function']['parameters'],
             }]
-            # This part could be expanded to query Chroma for other dynamic functions if needed for more complex scenarios
-            # For now, only the creation tool is explicitly returned for LLM discovery in this context.
             return available_defs
         except Exception as e:
             print(f"Error querying ChromaDB for available functions: {e}")
@@ -386,39 +450,34 @@ class DynamicFunctionExecutor:
         if not code_string: return f"Error: Invalid or missing code string for function '{function_name}'."
 
         try:
-            # Prepare the parameters that will be passed to the dynamic function.
-            # This is a copy so we can modify it for specific cases if needed.
             params_for_actual_call = params_for_function.copy()
             if function_name == "df_genesis_engine":
-                # Ensure external_apis is available inside the 'params' argument for df_genesis_engine
-                # because its LLM-generated code expects to retrieve it from there.
                 params_for_actual_call['external_apis'] = external_apis_dict if external_apis_dict is not None else {}
             if schema and schema.get('required'):
                 for param_key in schema['required']:
                     if param_key not in params_for_function:
                         raise ValueError(f"Missing required parameter '{param_key}' in params_for_function for {function_name}.")
 
-            # Prepare execution scope
-            # json module is explicitly added for parsing API responses if they are JSON strings
-            allowed_builtins = {'print':print,'len':len,'str':str,'int':int,'float':float,'bool':bool,'dict':dict,'list':list,'tuple':set,'set':set,'isinstance':isinstance,'Exception':Exception,'ValueError':ValueError,'TypeError':TypeError,'KeyError':KeyError, 'json': json}
+            allowed_builtins = {'print':print,'len':len,'str':str,'int':int,'float':float,'bool':bool,'dict':dict,'list':list,'tuple':set,'set':set,'isinstance':isinstance,'Exception':Exception,'ValueError':ValueError,'TypeError':TypeError,'KeyError':KeyError, 'json': json, 'uuid': uuid, '__import__': __import__, 'globals': globals}
             execution_globals = {
-                'params': params_for_actual_call, # Use the potentially modified params for the exec scope 'params' variable
+                'params': params_for_actual_call, 
                 'external_apis': external_apis_dict if external_apis_dict is not None else {},
                 '__builtins__': allowed_builtins,
-                'json': json # Make json module directly available
+                'json': json, 
+                'uuid': uuid 
             }
 
             compiled_code = compile(code_string, f'<function:{function_name}>', 'exec')
-            exec(compiled_code, execution_globals) # Defines the function in execution_globals
+            exec(compiled_code, execution_globals) 
 
             actual_function_to_call = execution_globals.get(function_name)
             if not callable(actual_function_to_call):
                  raise Exception(f"Code string did not define a callable function named '{function_name}'. Defined names: {list(execution_globals.keys())}")
 
             self.debug_log(f"Executing dynamically loaded function {function_name} from string...")
-            result = actual_function_to_call(params_for_actual_call) # Call the function with its designated params
+            result = actual_function_to_call(params_for_actual_call) 
 
-            if not isinstance(result, str): # Ensure result is a string as expected by game logic
+            if not isinstance(result, str): 
                 self.debug_log(f"Warning: Dynamic function {function_name} did not return a string. Converting: {result}")
                 result = str(result)
             return result
@@ -430,7 +489,7 @@ class DynamicFunctionExecutor:
                 self.debug_log(f"LLM REPAIR HOOK: Invoking callback for function '{function_name}' due to error.")
                 try:
                     api_desc_for_repair = None 
-                    if hasattr(self, 'get_host_api_description_for_repair_context'): # If a method is set to provide this
+                    if hasattr(self, 'get_host_api_description_for_repair_context'): 
                         api_desc_for_repair = self.get_host_api_description_for_repair_context()
                     
                     self.llm_repair_callback(
@@ -446,3 +505,4 @@ class DynamicFunctionExecutor:
                 self.debug_log(f"LLM REPAIR HOOK: No callback registered or not callable for function '{function_name}'.")
             
             return error_message_for_client
+
