@@ -4,22 +4,45 @@
      <title>Infinite MMORPG - Orb of Ingenuity Demo</title>
      <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
      <style>
-         body { font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; margin: 0; background-color: #111; color: #eee; overflow: hidden; }
-         #game-container { position: relative; flex-grow: 1; width: 100%; height: 100%; }
-         #threejs-canvas { display: block; width: 100%; height: 100%; }
-         .ui-overlay { position: absolute; left: 0; right: 0; background-color: rgba(0,0,0,0.6); padding: 5px; box-sizing: border-box; }
-         #log-area { top: 0; height: 35%; overflow-y: scroll; font-size: 0.8em; border-bottom: 1px solid #444;}
+         body { font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; margin: 0; background-color: #111; color: #eee; overflow: hidden; font-size: 16px; }
+         #game-container { position: relative; flex-grow: 1; width: 100%; height: 100%; display: flex; flex-direction: column; }
+         #threejs-canvas { display: block; width: 100%; flex-grow: 1; } /* Canvas takes remaining space */
+         .ui-overlay { position: absolute; left: 0; right: 0; background-color: rgba(0,0,0,0.6); padding: 5px; box-sizing: border-box; z-index: 10;}
+         #log-area { top: 0; height: 25%; overflow-y: scroll; font-size: 0.8em; border-bottom: 1px solid #444;}
          #log-area p { margin: 2px 0; }
-         #status-area { bottom: 25%; height: 20%; overflow-y: auto; font-size: 0.8em; border-top: 1px solid #444; padding: 8px;}
-         #action-area { bottom: 0; height: 25%; overflow-y: auto; border-top: 1px solid #444;}
-         #action-buttons button { display: block; width: 95%; margin: 3px auto; padding: 8px 10px; font-size: 0.9em; cursor: pointer; background-color: #3a5a97; color: white; border: 1px solid #5c7abd; border-radius: 4px; text-align: left; }
+         #status-area { top: 25%; height: 20%; overflow-y: auto; font-size: 0.8em; border-top: 1px solid #444; padding: 8px;}
+         #action-area { bottom: 0; height: 30%; overflow-y: auto; border-top: 1px solid #444;}
+         #action-buttons button { display: block; width: 95%; margin: 5px auto; padding: 10px 10px; font-size: 0.9em; cursor: pointer; background-color: #3a5a97; color: white; border: 1px solid #5c7abd; border-radius: 4px; text-align: left; }
          #action-buttons button:hover { background-color: #4a6ab7; }
-         #action-buttons button .desc { font-size: 0.7em; color: #ccc; display: block; margin-top: 2px;}
-         #debug-area { position: fixed; top: 40%; right: 5px; background: rgba(0,0,0,0.7); color: lime; font-family: monospace; font-size: 0.6em; max-height: 100px; width:150px; overflow-y: scroll; padding: 3px; opacity: 0.8; z-index: 100; border: 1px solid lime;}
+         #action-buttons button .desc { font-size: 0.7em; color: #ccc; display: block; margin-top: 3px;}
+         #debug-area { position: fixed; bottom: 31%; right: 5px; background: rgba(0,0,0,0.7); color: lime; font-family: monospace; font-size: 0.6em; max-height: 80px; width:120px; overflow-y: scroll; padding: 3px; opacity: 0.8; z-index: 100; border: 1px solid lime;}
          h3 {margin-top: 0; margin-bottom: 3px; text-align: center; border-bottom: 1px solid #555; padding-bottom: 3px; font-size: 1em;}
+         #joystick-area { position: absolute; bottom: 35%; left: 10px; width: 100px; height: 100px; opacity: 0.5; z-index: 20;}
+
+
+         @media (max-width: 768px) { /* Tablet and Mobile */
+            body { font-size: 14px; }
+            #log-area { height: 20%; font-size: 0.75em;}
+            #status-area { top: 20%; height: 15%; font-size: 0.75em; }
+            #action-area { height: 25%; font-size: 0.8em; } /* Make action area slightly bigger for taps */
+            #action-buttons button { padding: 12px 8px; font-size: 0.85em; }
+            #action-buttons button .desc { font-size: 0.65em; }
+            #debug-area { max-height: 60px; font-size: 0.5em; width: 100px; bottom: 26%;}
+            h3 { font-size: 0.9em; }
+            #joystick-area { width: 80px; height: 80px; bottom: 28%;}
+         }
+          @media (orientation: landscape) and (max-height: 450px) { /* Small landscape phones */
+            #log-area { height: 25%; }
+            #status-area { display: none; } /* Hide status on very small landscape to give space to actions/log */
+            #action-area { height: 35%; }
+            #joystick-area { bottom: 10px; left: 10px; width: 70px; height: 70px;}
+            #debug-area { bottom: 10px; }
+          }
+
      </style>
      <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
      <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" integrity="sha384-mkQ3/7FUtcGyoppY6bz/PORYoGqOl7/aSUMn2ymDOJcapfS6PHqxhRTMh1RR0Q6+" crossorigin="anonymous"></script>
+     <script src="https://yoannmoinet.github.io/nipplejs/javascripts/nipplejs.js"></script>
  </head>
  <body>
      <div id="game-container">
@@ -35,6 +58,7 @@
              <h3>Inventory Actions</h3>
              <div id="action-buttons"></div>
          </div>
+         <div id="joystick-area"></div>
      </div>
       <div id="debug-area">
           <div id="debug-content"></div>
@@ -44,6 +68,7 @@
          const socket = io();
 
          const logContent = document.getElementById('log-content');
+         const logArea = document.getElementById('log-area');
          const statusArea = document.getElementById('status-area');
          const actionButtons = document.getElementById('action-buttons');
          const debugContent = document.getElementById('debug-content');
@@ -52,13 +77,19 @@
          let playerSoulId = null;
          let currentGameState = {};
 
-         // --- Three.js Setup ---
-         let scene, camera, renderer, playerAvatar, controls;
-         const landmarkObjects = {}; // Store 3D objects for landmarks
-         const temporary3DObjects = {}; // Store 3D objects for temporary game objects
+         let scene, camera, renderer, playerAvatar;
+         const landmarkObjects = {};
+         const temporary3DObjects = {};
+         let mainGroundPlane, vaultPlatformPlayerSide, vaultPlatformKeyholeSide; 
 
-         // Define some fixed 3D positions for landmarks within locations (example)
-         const landmarkPositions = {
+         const locationCenterPositions = {
+             trial_chamber: new THREE.Vector3(0,0,0),
+             vault_approach: new THREE.Vector3(10,0,0),
+             "LIMBO_VOID": new THREE.Vector3(0, -50, -100),
+             null: new THREE.Vector3(0,-50,-100), 
+             undefined: new THREE.Vector3(0,-50,-100) 
+         };
+         const landmarkPositions = { 
              trial_chamber: {
                  flame_pedestal_loc: new THREE.Vector3(2, 0, -2),
                  water_pedestal_loc: new THREE.Vector3(0, 0, -3),
@@ -70,11 +101,24 @@
                  vault_door_main: new THREE.Vector3(0, 1, -6)
              }
          };
-         const locationCenterPositions = {
-             trial_chamber: new THREE.Vector3(0,0,0),
-             vault_approach: new THREE.Vector3(10,0,0), // Example: different center
-             undefined: new THREE.Vector3(0,0,-100) // "The Void"
-         }
+
+         let isPointerDragging = false;
+         let pointerDownTime = 0;
+         let dragThreshold = 5; 
+         let initialPointerPosition = {x:0, y:0};
+         let currentPointerPosition = { x: 0, y: 0 };
+         let isPointerDownOnCanvas = false;
+
+         let raycaster = new THREE.Raycaster();
+         let tapCoordinates = new THREE.Vector2();
+         let highlightedObject = null;
+         let lastSelectedTargetId = null;
+
+         let joystickMoveVector = new THREE.Vector2(0,0);
+         const playerMoveSpeed = 2.5; 
+         let lastFrameTime = performance.now();
+         
+         let clientSideLastLocationId = null;
 
 
          function initThree() {
@@ -82,70 +126,51 @@
              scene.background = new THREE.Color(0x282c34);
 
              camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-             camera.position.set(0, 2, 5); // Initial camera position
+             camera.position.set(0, 2, 5);
 
              renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
              renderer.setSize(window.innerWidth, window.innerHeight);
 
-             // Basic Lighting
-             const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+             const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
              scene.add(ambientLight);
-             const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+             const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
              directionalLight.position.set(5, 10, 7);
              scene.add(directionalLight);
 
-             // Player Avatar
              const playerGeometry = new THREE.BoxGeometry(0.5, 1, 0.5);
-             const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+             const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00dd00 });
              playerAvatar = new THREE.Mesh(playerGeometry, playerMaterial);
-             playerAvatar.position.y = 0.5; // Stand on the ground
+             playerAvatar.position.y = 0.5;
              scene.add(playerAvatar);
              
-             // Ground Plane
              const groundGeometry = new THREE.PlaneGeometry(20, 20);
              const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x4a4a4a, side: THREE.DoubleSide });
-             const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-             ground.rotation.x = -Math.PI / 2;
-             scene.add(ground);
+             mainGroundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
+             mainGroundPlane.rotation.x = -Math.PI / 2;
+             mainGroundPlane.name = "mainGroundPlane";
+             scene.add(mainGroundPlane);
+             mainGroundPlane.visible = false;
 
-             // Basic Orbit Controls (Touch/Mouse)
-             let isDragging = false;
-             let previousMousePosition = { x: 0, y: 0 };
+            const platGeo = new THREE.BoxGeometry(5, 0.2, 4);
+            const platMat = new THREE.MeshStandardMaterial({ color: 0x5a5a5a });
+            vaultPlatformPlayerSide = new THREE.Mesh(platGeo, platMat);
+            vaultPlatformPlayerSide.name = "vaultPlatformPlayerSide";
+            scene.add(vaultPlatformPlayerSide);
+            vaultPlatformPlayerSide.visible = false;
 
-             const onPointerDown = (event) => {
-                 isDragging = true;
-                 previousMousePosition.x = event.clientX || (event.touches && event.touches[0].clientX);
-                 previousMousePosition.y = event.clientY || (event.touches && event.touches[0].clientY);
-             };
-             const onPointerMove = (event) => {
-                 if (!isDragging) return;
-                 const clientX = event.clientX || (event.touches && event.touches[0].clientX);
-                 const clientY = event.clientY || (event.touches && event.touches[0].clientY);
-                 const deltaMove = {
-                     x: clientX - previousMousePosition.x,
-                     y: clientY - previousMousePosition.y
-                 };
-                 const rotationSpeed = 0.005;
-                 playerAvatar.rotation.y -= deltaMove.x * rotationSpeed; // Example: Rotate avatar or camera
-                 camera.position.y -= deltaMove.y * rotationSpeed * 0.5;
-                 camera.position.y = Math.max(1, Math.min(camera.position.y, 5)); // Clamp camera height
+            const keyholePlatGeo = new THREE.BoxGeometry(3, 0.2, 3);
+            vaultPlatformKeyholeSide = new THREE.Mesh(keyholePlatGeo, platMat);
+            vaultPlatformKeyholeSide.name = "vaultPlatformKeyholeSide";
+            scene.add(vaultPlatformKeyholeSide);
+            vaultPlatformKeyholeSide.visible = false;
 
-                 previousMousePosition.x = clientX;
-                 previousMousePosition.y = clientY;
-             };
-             const onPointerUp = () => { isDragging = false; };
-             const onWheel = (event) => {
-                 camera.position.z += event.deltaY * 0.01;
-                 camera.position.z = Math.max(2, Math.min(camera.position.z, 10));
-             }
+             canvas.addEventListener('pointerdown', onPointerDownCanvas, false);
+             canvas.addEventListener('pointermove', onPointerMoveCanvas, false);
+             canvas.addEventListener('pointerup', onPointerUpCanvas, false);
+             canvas.addEventListener('pointerout', onPointerUpCanvas, false); 
+             canvas.addEventListener('wheel', onWheelCanvas, { passive: false }); 
 
-             canvas.addEventListener('pointerdown', onPointerDown, false);
-             canvas.addEventListener('pointermove', onPointerMove, false);
-             canvas.addEventListener('pointerup', onPointerUp, false);
-             canvas.addEventListener('pointerout', onPointerUp, false); // Also stop dragging if pointer leaves canvas
-             canvas.addEventListener('wheel', onWheel, false);
-
-
+             setupJoystick();
              animate();
              window.addEventListener('resize', onWindowResize, false);
          }
@@ -156,21 +181,103 @@
              renderer.setSize(window.innerWidth, window.innerHeight);
          }
 
+        function onPointerDownCanvas(event) {
+            if (event.target !== canvas) return;
+            isPointerDownOnCanvas = true;
+            isPointerDragging = false;
+            pointerDownTime = performance.now();
+            currentPointerPosition.x = event.clientX || (event.touches && event.touches[0].clientX);
+            currentPointerPosition.y = event.clientY || (event.touches && event.touches[0].clientY);
+            initialPointerPosition.x = currentPointerPosition.x;
+            initialPointerPosition.y = currentPointerPosition.y;
+        }
+
+        function onPointerMoveCanvas(event) {
+            if (!isPointerDownOnCanvas) return;
+            const clientX = event.clientX || (event.touches && event.touches[0].clientX);
+            const clientY = event.clientY || (event.touches && event.touches[0].clientY);
+
+            const deltaX = clientX - currentPointerPosition.x;
+            const deltaY = clientY - currentPointerPosition.y;
+
+            if (Math.abs(deltaX) > dragThreshold || Math.abs(deltaY) > dragThreshold) {
+                isPointerDragging = true;
+            }
+
+            if (isPointerDragging) { 
+                const rotationSpeed = 0.004;
+                playerAvatar.rotation.y -= deltaX * rotationSpeed;
+                camera.rotation.x -= deltaY * rotationSpeed * 0.5; 
+                camera.rotation.x = Math.max(-Math.PI / 4, Math.min(Math.PI / 4, camera.rotation.x)); 
+            }
+            currentPointerPosition.x = clientX;
+            currentPointerPosition.y = clientY;
+        }
+
+        function onPointerUpCanvas(event) {
+            if (!isPointerDownOnCanvas) return;
+            const upTime = performance.now();
+            const timeDelta = upTime - pointerDownTime;
+            const distMoved = Math.sqrt(Math.pow(currentPointerPosition.x - initialPointerPosition.x, 2) + Math.pow(currentPointerPosition.y - initialPointerPosition.y, 2));
+
+            if (!isPointerDragging && timeDelta < 300 && distMoved < 10) { 
+                handleCanvasTap(event);
+            }
+            isPointerDownOnCanvas = false;
+            isPointerDragging = false;
+        }
+        
+        function onWheelCanvas(event) {
+            event.preventDefault(); 
+            const zoomSpeed = 0.01;
+            camera.position.z += event.deltaY * zoomSpeed;
+            camera.position.z = Math.max(2, Math.min(camera.position.z, 10)); 
+        }
+
+         function setupJoystick() {
+            const options = {
+                zone: document.getElementById('joystick-area'),
+                mode: 'static',
+                position: { left: '50%', top: '50%' },
+                color: 'rgba(128,128,128,0.8)',
+                size: Math.min(100, window.innerWidth * 0.2) 
+            };
+            const joyManager = nipplejs.create(options);
+            joyManager.on('move', function (evt, data) {
+                if (data.vector) joystickMoveVector.set(data.vector.x, data.vector.y);
+            });
+            joyManager.on('end', function () {
+                joystickMoveVector.set(0,0);
+            });
+        }
+
          function animate() {
-             requestAnimationFrame(animate);
-             // Update camera to look at player (or a point in front of player)
-             if (playerAvatar) {
-                const lookAtOffset = new THREE.Vector3(0, 0.5, -1); // Look slightly in front and up
-                const lookAtTarget = playerAvatar.position.clone().add(lookAtOffset.applyQuaternion(playerAvatar.quaternion));
-                const cameraOffset = new THREE.Vector3(0, 2, 3); // Camera behind and above
-                const cameraTargetPosition = playerAvatar.position.clone().add(cameraOffset.applyQuaternion(playerAvatar.quaternion));
+            requestAnimationFrame(animate);
+            const currentTime = performance.now();
+            const deltaTime = (currentTime - lastFrameTime) / 1000.0;
+            lastFrameTime = currentTime;
+
+            if (playerAvatar && joystickMoveVector.lengthSq() > 0) {
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(playerAvatar.quaternion);
+                const right = new THREE.Vector3(1, 0, 0).applyQuaternion(playerAvatar.quaternion);
                 
-                camera.position.lerp(cameraTargetPosition, 0.1);
-                camera.lookAt(lookAtTarget);
-             }
-             renderer.render(scene, camera);
+                let moveDirection = new THREE.Vector3();
+                moveDirection.addScaledVector(forward, joystickMoveVector.y * -1); 
+                moveDirection.addScaledVector(right, joystickMoveVector.x);
+                moveDirection.normalize();
+
+                playerAvatar.position.addScaledVector(moveDirection, playerMoveSpeed * deltaTime);
+                playerAvatar.position.y = 0.5; 
+            }
+
+            if (playerAvatar) {
+                const cameraOffset = new THREE.Vector3(0, 2.5, 3.5); 
+                const targetCameraPosition = playerAvatar.position.clone().add(cameraOffset.applyQuaternion(playerAvatar.quaternion));
+                camera.position.lerp(targetCameraPosition, 0.15);
+                camera.lookAt(playerAvatar.position.clone().add(new THREE.Vector3(0,0.5,0))); 
+            }
+            renderer.render(scene, camera);
          }
-         // --- End Three.js Setup ---
 
          function addLogMessage(message, type = 'info') {
              const p = document.createElement('p');
@@ -179,9 +286,8 @@
              if (type === 'success') p.style.color = '#8cff8c';
              if (type === 'event') { p.style.color = '#8cb8ff'; p.style.fontWeight = 'bold';}
              logContent.appendChild(p);
-             logContent.scrollTop = logContent.scrollHeight;
+             setTimeout(() => { logArea.scrollTop = logArea.scrollHeight; }, 0);
          }
-
          function addDebugMessage(message) {
              const d = document.createElement('div');
              d.textContent = message;
@@ -189,205 +295,262 @@
              debugContent.scrollTop = debugContent.scrollHeight;
          }
         
-         function updateLandmarks3D(locationId, landmarksData) {
-            // Clear old landmarks
+        function setupLocationVisuals(locationId) {
+            const locCenter = locationCenterPositions[locationId] || locationCenterPositions['undefined'] || new THREE.Vector3(0,0,0);
+            
+            mainGroundPlane.visible = false;
+            vaultPlatformPlayerSide.visible = false;
+            vaultPlatformKeyholeSide.visible = false;
+
+            if (locationId === 'trial_chamber') {
+                mainGroundPlane.visible = true;
+                mainGroundPlane.position.copy(locCenter);
+            } else if (locationId === 'vault_approach') {
+                const currentLocLandmarkRelPositions = landmarkPositions[locationId] || {};
+                const keyholeRelPos = currentLocLandmarkRelPositions['keyhole_platform_exit'] || new THREE.Vector3(0, 0, -4);
+                const keyholeAbsPos = keyholeRelPos.clone().add(locCenter);
+
+                vaultPlatformPlayerSide.position.set(locCenter.x, locCenter.y - 0.1, locCenter.z + 2); 
+                vaultPlatformPlayerSide.visible = true;
+
+                vaultPlatformKeyholeSide.position.set(keyholeAbsPos.x, keyholeAbsPos.y - 0.1, keyholeAbsPos.z);
+                vaultPlatformKeyholeSide.visible = true;
+            } else { 
+                mainGroundPlane.visible = true; 
+                mainGroundPlane.position.copy(locCenter);
+            }
+        }
+
+        function updateLandmarks3D(locationId, landmarksData, envObjectsInLocation, allPuzzleStates) {
             for (const key in landmarkObjects) {
-                scene.remove(landmarkObjects[key]);
-                delete landmarkObjects[key];
+                scene.remove(landmarkObjects[key]); delete landmarkObjects[key];
             }
             if (!landmarksData || !locationId) return;
 
-            const currentLocLandmarkPositions = landmarkPositions[locationId] || {};
-            const locCenter = locationCenterPositions[locationId] || new THREE.Vector3(0,0,0);
+            const locCenter = locationCenterPositions[locationId] || locationCenterPositions['undefined'] || new THREE.Vector3(0,0,0);
+            const currentLocLandmarkRelPositions = landmarkPositions[locationId] || {};
 
-            for (const [key, name] of Object.entries(landmarksData)) {
-                const pos = currentLocLandmarkPositions[key] ? currentLocLandmarkPositions[key].clone().add(locCenter) : locCenter.clone().add(new THREE.Vector3(Math.random()*4-2, 0.25, Math.random()*4-2)); // Default random if not specified
+            for (const [landmarkKey, landmarkName] of Object.entries(landmarksData)) {
+                const relPos = currentLocLandmarkRelPositions[landmarkKey] || new THREE.Vector3(Math.random()*4-2, 0.25, Math.random()*4-2);
+                const absPos = relPos.clone().add(locCenter);
+                
                 const landmarkGeo = new THREE.SphereGeometry(0.2, 16, 16);
                 let landmarkMatColor = 0xaaaaaa;
-                if (key.includes("pedestal")) landmarkMatColor = 0xccaa88;
-                if (key.includes("door")) landmarkMatColor = 0x8888cc;
+
+                let correspondingEnvObject = null;
+                if (envObjectsInLocation) {
+                    if (landmarkKey === 'flame_pedestal_loc') correspondingEnvObject = envObjectsInLocation.find(obj => obj.id === 'pedestal_fire');
+                    else if (landmarkKey === 'water_pedestal_loc') correspondingEnvObject = envObjectsInLocation.find(obj => obj.id === 'pedestal_water');
+                    else if (landmarkKey === 'wind_pedestal_loc') correspondingEnvObject = envObjectsInLocation.find(obj => obj.id === 'pedestal_wind');
+                    else if (landmarkKey === 'vault_door_main') correspondingEnvObject = envObjectsInLocation.find(obj => obj.id === 'vault_keyhole');
+                }
+                
+                if (correspondingEnvObject) {
+                    if (correspondingEnvObject.type === 'elemental_pedestal') {
+                        landmarkMatColor = correspondingEnvObject.details && correspondingEnvObject.details.is_active ? 0x00ff00 : 0xccaa88;
+                    } else if (correspondingEnvObject.id === 'vault_keyhole') {
+                        const vaultPuzzle = allPuzzleStates ? allPuzzleStates['unreachable_vault'] : null;
+                        if ((correspondingEnvObject.details && correspondingEnvObject.details.is_unlocked) || (vaultPuzzle && vaultPuzzle.is_open)) {
+                            landmarkMatColor = 0x7777ff;
+                        } else {
+                            landmarkMatColor = 0x333388;
+                        }
+                    }
+                } else if (landmarkKey.includes("pedestal")) landmarkMatColor = 0xccaa88;
+                else if (landmarkKey.includes("door") || landmarkKey.includes("exit")) {
+                    if (landmarkKey === 'sealed_door_exit' && locationId === 'trial_chamber') {
+                        const trialPuzzle = allPuzzleStates ? allPuzzleStates['elemental_trial'] : null;
+                        landmarkMatColor = (trialPuzzle && trialPuzzle.is_complete) ? 0x77cc77 : 0x8888cc;
+                    } else landmarkMatColor = 0x8888cc;
+                }
+
                 const landmarkMat = new THREE.MeshStandardMaterial({ color: landmarkMatColor });
                 const landmarkMesh = new THREE.Mesh(landmarkGeo, landmarkMat);
-                landmarkMesh.position.copy(pos);
-                landmarkMesh.userData = { id: key, name: name, type: 'landmark' }; // For potential raycasting
+                landmarkMesh.position.copy(absPos);
+                landmarkMesh.userData = { id: landmarkKey, name: landmarkName, type: 'landmark', isInteractable: true }; 
                 scene.add(landmarkMesh);
-                landmarkObjects[key] = landmarkMesh;
-
-                // Simple text label (optional, can be performance intensive)
-                // const label = createTextSprite(name);
-                // label.position.copy(pos).add(new THREE.Vector3(0, 0.5, 0));
-                // scene.add(label);
-                // landmarkObjects[key + "_label"] = label;
+                landmarkObjects[landmarkKey] = landmarkMesh;
             }
         }
         
         function updateTemporaryObjects3D(tempObjectsData, currentLocationId) {
-            // Clear old temporary objects that no longer exist or expired
             for (const objId in temporary3DObjects) {
                 if (!tempObjectsData || !tempObjectsData.find(obj => obj.id === objId && obj.location_id === currentLocationId)) {
-                    scene.remove(temporary3DObjects[objId]);
-                    delete temporary3DObjects[objId];
+                    scene.remove(temporary3DObjects[objId]); delete temporary3DObjects[objId];
                 }
             }
             if (!tempObjectsData || !currentLocationId) return;
 
-            const locCenter = locationCenterPositions[currentLocationId] || new THREE.Vector3(0,0,0);
-            const currentLocLandmarkPositions = landmarkPositions[currentLocationId] || {};
+            const locCenter = locationCenterPositions[currentLocationId] || locationCenterPositions['undefined'] || new THREE.Vector3(0,0,0);
+            const currentLocLandmarkRelPositions = landmarkPositions[currentLocationId] || {};
 
             tempObjectsData.forEach(obj => {
-                if (obj.location_id !== currentLocationId || temporary3DObjects[obj.id]) return; // Already exists or wrong location
+                if (obj.location_id !== currentLocationId || temporary3DObjects[obj.id]) return; 
 
                 if (obj.type === 'light_bridge') {
-                    let fromPos = playerAvatar.position.clone(); // Default 'player_current_pos'
-                    const toLandmarkKey = obj.to; // e.g., "keyhole_platform_exit"
-                    let toPos = currentLocLandmarkPositions[toLandmarkKey] ? currentLocLandmarkPositions[toLandmarkKey].clone().add(locCenter) : locCenter.clone().add(new THREE.Vector3(0,0,-5)); // Default if target landmark unknown
+                    let fromPos = playerAvatar.position.clone(); 
+                    const toLandmarkKey = obj.to;
+                    let toPosRel = currentLocLandmarkRelPositions[toLandmarkKey] || new THREE.Vector3(0, 0.1, -5); 
+                    let toPosAbs = toPosRel.clone().add(locCenter);
 
-                    const distance = fromPos.distanceTo(toPos);
+                    const distance = fromPos.distanceTo(toPosAbs);
                     const bridgeMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.6 });
-                    const bridgeGeometry = new THREE.BoxGeometry(0.3, 0.1, distance);
+                    const bridgeGeometry = new THREE.BoxGeometry(0.3, 0.1, distance); 
                     const bridgeMesh = new THREE.Mesh(bridgeGeometry, bridgeMaterial);
 
-                    bridgeMesh.position.copy(fromPos).lerp(toPos, 0.5); // Midpoint
-                    bridgeMesh.lookAt(toPos);
-                    bridgeMesh.position.y = 0.1; // Slightly above ground
+                    bridgeMesh.position.copy(fromPos).lerp(toPosAbs, 0.5); 
+                    bridgeMesh.lookAt(toPosAbs);
+                    bridgeMesh.position.y = fromPos.y - 0.4; 
 
                     scene.add(bridgeMesh);
                     temporary3DObjects[obj.id] = bridgeMesh;
                     
-                    // Auto-remove visually after duration (crude client-side removal)
                     setTimeout(() => {
                         if (temporary3DObjects[obj.id]) {
-                            scene.remove(temporary3DObjects[obj.id]);
-                            delete temporary3DObjects[obj.id];
+                            scene.remove(temporary3DObjects[obj.id]); delete temporary3DObjects[obj.id];
                         }
                     }, obj.duration * 1000);
                 }
             });
         }
 
-
          function updateStatus(state) {
-              if (!state || !state.playerSoul || !state.currentLocation) {
-                  statusArea.innerHTML = "Waiting for server data...";
-                  return;
+              if (!state || !state.playerSoul ) {
+                  statusArea.innerHTML = "Waiting for server data..."; return;
               }
               currentGameState = state;
 
+              let currentLocationDisplay = state.currentLocation || { name: "The Void", description: "Loading...", landmarks: {}, exits: {}};
+              if (state.playerSoul.locationId === "LIMBO_VOID" || state.playerSoul.locationId === null || !state.currentLocation) {
+                  currentLocationDisplay = { id: state.playerSoul.locationId, name: "The Void", description: "Drifting in an unformed expanse...", exits: {}, landmarks: {}, temporary_notes: "None"};
+              }
+
               let statusHTML = `
                   <strong>${state.playerSoul.name}</strong> (ID: ${state.playerSoul.id.substring(0,8)})<br>
-                  Location: <strong>${state.currentLocation.name}</strong><br>
-                  <em>${state.currentLocation.description}</em><br>
-                  Exits: ${Object.entries(state.currentLocation.exits || {}).map(([dir, loc_id]) => `${dir}: ${loc_id}`).join(', ') || 'None'} <br>
-                  Landmarks: ${state.currentLocation.landmarks ? Object.keys(state.currentLocation.landmarks).join(', ') : 'None'} <br>
-                  Temporary Notes: ${state.currentLocation.temporary_notes || 'None'} <br>
+                  Location: <strong>${currentLocationDisplay.name}</strong> (ID: ${currentLocationDisplay.id})<br>
+                  <em>${currentLocationDisplay.description}</em><br>
+                  Exits: ${Object.entries(currentLocationDisplay.exits || {}).map(([dir, loc_id]) => `${dir}: ${loc_id}`).join(', ') || 'None'} <br>
+                  Landmarks: ${currentLocationDisplay.landmarks ? Object.keys(currentLocationDisplay.landmarks).join(', ') : 'None'} <br>
+                  Temporary Notes: ${currentLocationDisplay.temporary_notes || 'None'} <br>
                   Inventory: ${state.inventory ? state.inventory.map(a => a.name).join(', ') : 'Empty'}
               `;
               statusArea.innerHTML = statusHTML;
 
-              // Update 3D elements
               if (playerAvatar) {
-                  const currentLocId = state.playerSoul.locationId || 'undefined';
-                  playerAvatar.position.copy(locationCenterPositions[currentLocId] || new THREE.Vector3(0,0.5,0));
-                  updateLandmarks3D(currentLocId, state.currentLocation.landmarks);
+                  const newLocationId = state.playerSoul.locationId || "LIMBO_VOID";
+                  
+                  if (newLocationId !== clientSideLastLocationId) { 
+                      let targetPlayerPos = locationCenterPositions[newLocationId];
+                      if(!targetPlayerPos) {
+                          console.warn(`No locationCenterPosition for ${newLocationId}, defaulting.`);
+                          targetPlayerPos = locationCenterPositions["undefined"] || new THREE.Vector3(0,0,0);
+                      }
+                      
+                      playerAvatar.position.copy(targetPlayerPos); 
+                      playerAvatar.position.y = 0.5; 
+
+                      clientSideLastLocationId = newLocationId; 
+                      setupLocationVisuals(newLocationId); 
+                  }
+                  updateLandmarks3D(newLocationId, currentLocationDisplay.landmarks, state.environmentObjectsInLocation, state.allPuzzleStates);
+                  updateTemporaryObjects3D(state.activeTemporaryObjects, newLocationId);
               }
-              updateTemporaryObjects3D(state.activeTemporaryObjects, state.playerSoul.locationId);
-
          }
-
          function updateLog(logEntries) {
               if (!logEntries) return;
               logContent.innerHTML = '';
               logEntries.forEach(msg => addLogMessage(msg));
          }
-
          function renderActions(actions) {
              actionButtons.innerHTML = '';
              if (!actions || actions.length === 0) {
-                 actionButtons.innerHTML = '<p>No actions available.</p>';
-                 return;
+                 actionButtons.innerHTML = '<p>No actions available.</p>'; return;
              }
-
              actions.forEach(actionArtifact => {
                  const button = document.createElement('button');
                  button.dataset.artifactId = actionArtifact.id;
                  button.innerHTML = `${actionArtifact.name} <span class="desc">${actionArtifact.description || `(Use ${actionArtifact.name})`}</span>`;
-
                  button.onclick = () => {
                      addDebugMessage(`Clicked action: ${actionArtifact.name} (ID: ${actionArtifact.id}, Func: ${actionArtifact.toolName || 'N/A'})`);
                      let args = {};
                      if (actionArtifact.toolName === 'df_interact_with_pedestal') {
-                         const targetPedestal = prompt("Which pedestal ID? (e.g., pedestal_fire, pedestal_water, pedestal_wind)");
-                         if (!targetPedestal) return;
-                         args.target_pedestal_id = targetPedestal.trim();
+                         if (lastSelectedTargetId) {
+                            args.target_pedestal_id = lastSelectedTargetId;
+                         } else {
+                            addLogMessage('Please tap on a pedestal in the 3D world first.', 'error'); return;
+                         }
                      }
-                     // For df_system_finalize_orb_charging, catalyst_artifact_id, new_tool_function_name, user_desc are needed.
-                     // This is now handled server-side after 'create_dynamic_function' and before 'df_system_finalize_orb_charging'
                      socket.emit('performAction', { artifactId: actionArtifact.id, args: args });
+                     if (highlightedObject) highlightedObject.material.emissive.setHex(0x000000);
+                     highlightedObject = null; lastSelectedTargetId = null;
                  };
                  actionButtons.appendChild(button);
              });
          }
 
+        function handleCanvasTap(event) {
+            tapCoordinates.x = (event.clientX / window.innerWidth) * 2 - 1;
+            tapCoordinates.y = - (event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(tapCoordinates, camera);
+
+            const interactables = Object.values(landmarkObjects).filter(obj => obj.visible && obj.userData.isInteractable);
+            const intersects = raycaster.intersectObjects(interactables, false);
+
+            if (highlightedObject) {
+                highlightedObject.material.emissive.setHex(0x000000); highlightedObject = null;
+            }
+            lastSelectedTargetId = null;
+
+            if (intersects.length > 0) {
+                const clickedObj = intersects[0].object;
+                if (clickedObj.userData && clickedObj.userData.id) {
+                    highlightedObject = clickedObj;
+                    highlightedObject.material.emissive.setHex(0xffff00); 
+                    lastSelectedTargetId = clickedObj.userData.id;
+                    addLogMessage(`Targeted: ${clickedObj.userData.name || clickedObj.userData.id}`, 'info');
+                }
+            }
+        }
+
          socket.on('connect', () => {
-             addLogMessage('Connected to Orb of Ingenuity!', 'success');
-             addDebugMessage(`Socket ID: ${socket.id}`);
-             initThree(); // Initialize Three.js scene on connect
+             addLogMessage('Connected!', 'success'); addDebugMessage(`Socket ID: ${socket.id}`);
+             clientSideLastLocationId = null; // Reset on connect
+             initThree(); 
          });
-
-         socket.on('disconnect', () => {
-             addLogMessage('Disconnected.', 'error');
-         });
-
-          socket.on('assignSoulId', (id) => {
-              playerSoulId = id;
-              addDebugMessage(`Player Soul ID: ${playerSoulId}`);
-              socket.emit('requestState');
+         socket.on('disconnect', () => { addLogMessage('Disconnected.', 'error'); });
+         socket.on('assignSoulId', (id) => {
+              playerSoulId = id; addDebugMessage(`Player Soul ID: ${playerSoulId}`);
+              socket.emit('requestState'); 
           });
-
          socket.on('gameStateUpdate', (state) => {
               addDebugMessage('Received gameStateUpdate');
-              if (state.error){
-                  addLogMessage(`Server Error: ${state.error}`, 'error');
-                  return;
-              }
-             updateStatus(state);
-             updateLog(state.worldLog);
+              if (state.error){ addLogMessage(`Server Error: ${state.error}`, 'error'); return; }
+             updateStatus(state); updateLog(state.worldLog);
          });
-
          socket.on('availableActions', (actions) => {
              addDebugMessage(`Received ${actions ? actions.length : 0} actions.`);
              renderActions(actions);
          });
-
          socket.on('actionResult', (result) => {
               addDebugMessage(`Action Result: Success=${result.success}, Msg=${result.message}`);
-              addLogMessage(result.message, result.success ? 'success' : 'error');
-
-              if (result.success && result.event === "PROMPT_USER_FOR_TOOL_DESCRIPTION") { // Changed to result.event
+              addLogMessage(result.message, result.success ? 'success' : (result.message.startsWith("EVENT:") ? 'event' : 'error'));
+              if (result.success && result.event === "PROMPT_USER_FOR_TOOL_DESCRIPTION") { 
                   addLogMessage("The Orb of Ingenuity hums...", 'event');
                   const userDescription = prompt("Describe the new power for the Orb (e.g., 'Create a temporary light bridge to the keyhole platform'):");
                   if (userDescription && userDescription.trim() !== "") {
                       socket.emit('submitToolDescription', {
                           description: userDescription.trim(),
-                          catalyst_artifact_id: result.prompt_for_tool_artifact_id
+                          catalyst_artifact_id: result.prompt_for_tool_artifact_id 
                       });
-                  } else {
-                      addLogMessage("Orb command cancelled.", 'info');
-                  }
+                  } else { addLogMessage("Orb command cancelled.", 'info'); }
               }
+              socket.emit('requestState'); 
          });
-
-          socket.on('debugInfo', (message) => {
-              addDebugMessage(message);
-          });
-
-         socket.on('requestState', () => {
+         socket.on('debugInfo', (message) => { addDebugMessage(message); });
+         socket.on('requestState', () => { 
                 addDebugMessage('Server requested state refresh.');
-               if(playerSoulId) {
-                   socket.emit('requestState');
-               }
+               if(playerSoulId) socket.emit('requestState');
            });
-
          addLogMessage('Attempting to connect...');
      </script>
  </body>

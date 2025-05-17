@@ -1,0 +1,223 @@
+{
+  "souls": {
+    "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6": {
+      "id": "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6",
+      "name": "DemoPlayer",
+      "location_id": "vault_approach",
+      "inventory": [
+        "ember_01",
+        "water_01",
+        "wind_01",
+        "key_01",
+        "orb_01",
+        "charged_orb_09c1f38c-b08b-4323-9b74-a8a45eeb0643"
+      ],
+      "type": "player",
+      "socket_id": "0Oy7LxAtNf2UzhNRAAAB"
+    }
+  },
+  "locations": {
+    "trial_chamber": {
+      "id": "trial_chamber",
+      "name": "Trial Chamber",
+      "description": "An ancient chamber with three pedestals: Flame, Water, and Wind. A sealed stone door blocks the exit. The once sealed stone door now stands open.",
+      "exits": {},
+      "landmarks": {
+        "flame_pedestal_loc": "Flame Pedestal",
+        "water_pedestal_loc": "Water Pedestal",
+        "wind_pedestal_loc": "Wind Pedestal",
+        "sealed_door_exit": "Sealed stone door"
+      }
+    },
+    "vault_approach": {
+      "id": "vault_approach",
+      "name": "Vault Approach",
+      "description": "A precarious ledge before a massive vault. A chasm separates you from a keyhole platform. The massive vault door now stands open.",
+      "exits": {},
+      "landmarks": {
+        "keyhole_platform_exit": "Keyhole platform",
+        "vault_door_main": "Massive vault door"
+      }
+    }
+  },
+  "artifacts": {
+    "ember_01": {
+      "id": "ember_01",
+      "name": "Flaming Ember",
+      "description": "A constantly burning ember.",
+      "linked_dynamic_function_name": "df_interact_with_pedestal",
+      "properties": {
+        "element_type": "fire"
+      }
+    },
+    "water_01": {
+      "id": "water_01",
+      "name": "Water Droplet",
+      "description": "A perfect, shimmering droplet.",
+      "linked_dynamic_function_name": "df_interact_with_pedestal",
+      "properties": {
+        "element_type": "water"
+      }
+    },
+    "wind_01": {
+      "id": "wind_01",
+      "name": "Gust of Wind",
+      "description": "Feels like a captured breeze.",
+      "linked_dynamic_function_name": "df_interact_with_pedestal",
+      "properties": {
+        "element_type": "wind"
+      }
+    },
+    "key_01": {
+      "id": "key_01",
+      "name": "Vault Key",
+      "description": "A heavy key for the Unreachable Vault.",
+      "linked_dynamic_function_name": "df_use_vault_key",
+      "properties": {}
+    },
+    "orb_01": {
+      "id": "orb_01",
+      "name": "Orb of Ingenuity",
+      "description": "A crystal orb humming with potential.",
+      "linked_dynamic_function_name": "df_initiate_orb_tool_creation",
+      "properties": {}
+    },
+    "charged_orb_09c1f38c-b08b-4323-9b74-a8a45eeb0643": {
+      "id": "charged_orb_09c1f38c-b08b-4323-9b74-a8a45eeb0643",
+      "name": "Orb: Create a temporary light ...",
+      "description": "The Orb of Ingenuity, now resonating with power to: Create a temporary light bridge to the keyhole platform.",
+      "linked_dynamic_function_name": "df_user_d02f_54d5",
+      "properties": {
+        "creator_soul_id": "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6"
+      }
+    }
+  },
+  "environment_objects": {
+    "pedestal_fire": {
+      "id": "pedestal_fire",
+      "location_id": "trial_chamber",
+      "type": "elemental_pedestal",
+      "details": {
+        "element_required": "fire",
+        "is_active": true,
+        "last_element_placed": "fire"
+      }
+    },
+    "pedestal_water": {
+      "id": "pedestal_water",
+      "location_id": "trial_chamber",
+      "type": "elemental_pedestal",
+      "details": {
+        "element_required": "water",
+        "is_active": true,
+        "last_element_placed": "water"
+      }
+    },
+    "pedestal_wind": {
+      "id": "pedestal_wind",
+      "location_id": "trial_chamber",
+      "type": "elemental_pedestal",
+      "details": {
+        "element_required": "wind",
+        "is_active": true,
+        "last_element_placed": "wind"
+      }
+    },
+    "vault_keyhole": {
+      "id": "vault_keyhole",
+      "location_id": "vault_approach",
+      "type": "keyhole",
+      "details": {
+        "is_unlocked": true
+      }
+    }
+  },
+  "puzzle_states": {
+    "elemental_trial": {
+      "id": "elemental_trial",
+      "active_pedestals_count": 0,
+      "target_pedestals": 3,
+      "is_complete": true
+    },
+    "unreachable_vault": {
+      "id": "unreachable_vault",
+      "keyhole_unlocked": false,
+      "is_open": true
+    }
+  },
+  "temporary_objects": {
+    "temp_light_bridge_d366": {
+      "id": "temp_light_bridge_d366",
+      "type": "light_bridge",
+      "location_id": "vault_approach",
+      "from": "player_current_pos",
+      "to": "keyhole_platform_exit",
+      "creation_time": 1747477190.0756714,
+      "duration": 15,
+      "creator_soul_id": "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6"
+    }
+  },
+  "world_log": [
+    "[DEMO] Server awaiting DemoPlayer. World will be born live...",
+    "DemoPlayer has entered. Awaiting world's birth or re-entry...",
+    "Server: World genesis protocol initiating...",
+    "Server: Executing df_genesis_engine to build the world...",
+    "Genesis Engine: Creating locations...",
+    "Genesis Engine: Creating environment objects...",
+    "Genesis Engine: Initializing puzzles...",
+    "Genesis Engine: Creating artifacts...",
+    "Genesis Engine: World structure complete!",
+    "Server: df_genesis_engine execution finished. Result: World Genesis complete via df_genesis_engine!",
+    "DemoPlayer has been brought from the Void into 'Trial Chamber'.",
+    "DemoPlayer obtained Flaming Ember.",
+    "DemoPlayer obtained Water Droplet.",
+    "DemoPlayer obtained Gust of Wind.",
+    "DemoPlayer obtained Vault Key.",
+    "[DEMO] Demo sequence initiated.",
+    "[DEMO] Demo step 1: COMMENT",
+    "[DEMO] Demo step 2: WAIT",
+    "[DEMO] DemoPlayer uses Flaming Ember on pedestal_fire.",
+    "Effect applied to env object 'pedestal_fire': {\"is_active\": true, \"last_element_placed\": \"fire\"}",
+    "[DEMO] Action result: fire placed on pedestal. It glows!",
+    "[DEMO] Demo step 4: WAIT",
+    "[DEMO] DemoPlayer uses Water Droplet on pedestal_water.",
+    "Effect applied to env object 'pedestal_water': {\"is_active\": true, \"last_element_placed\": \"water\"}",
+    "[DEMO] Action result: water placed on pedestal. It glows!",
+    "[DEMO] Demo step 6: WAIT",
+    "[DEMO] DemoPlayer uses Gust of Wind on pedestal_wind.",
+    "Effect applied to env object 'pedestal_wind': {\"is_active\": true, \"last_element_placed\": \"wind\"}",
+    "The Elemental Trial is complete! The sealed door in the Trial Chamber rumbles open.",
+    "DemoPlayer obtained Orb of Ingenuity.",
+    "[DEMO] Action result: All pedestals active! Trial complete!",
+    "[DEMO] Elemental Trial should be complete. Orb of Ingenuity acquired. Sealed door should look open.",
+    "[DEMO] DemoPlayer uses Orb of Ingenuity.",
+    "[DEMO] Action result: EVENT:PROMPT_USER_FOR_TOOL_DESCRIPTION",
+    "[DEMO] Demo step 10: WAIT",
+    "[DEMO] DemoPlayer describes tool: Create a temporary light bridge...",
+    "DemoPlayer obtained Orb: Create a temporary light ....",
+    "DemoPlayer: The Orb of Ingenuity glows! You've learned to manifest 'Orb: Create a temporary light ...'!",
+    "[DEMO] Tool description result: The Orb of Ingenuity glows! You've learned to manifest 'Orb: Create a temporary light ...'!",
+    "[DEMO] New artifact 'Orb: Create a temporary l...' should be created and given.",
+    "[DEMO] Demo step 13: COMMENT",
+    "[DEMO] DemoPlayer moves to Vault Approach (simulated for script).",
+    "[DEMO] DemoPlayer moved from 'Trial Chamber' to 'Vault Approach'.",
+    "[DEMO] Demo step 15: WAIT",
+    "[DEMO] DemoPlayer uses the newly created light bridge Orb (in Vault Approach).",
+    "A light_bridge appeared from 'player_current_pos' to 'keyhole_platform_exit' in Vault Approach. It will last 15s.",
+    "[DEMO] Action result: light_bridge created to 'keyhole_platform_exit'.",
+    "[DEMO] Light bridge in Vault Approach should be active towards 'keyhole_platform_exit'.",
+    "[DEMO] Demo step 18: COMMENT",
+    "[DEMO] DemoPlayer uses Vault Key at Vault Approach.",
+    "Effect applied to env object 'vault_keyhole': {\"is_unlocked\": true}",
+    "The Unreachable Vault door rumbles open!",
+    "[DEMO] Action result: Vault key clicks. The door opens!",
+    "[DEMO] Vault door should now open as the condition (light bridge in Vault Approach) is met.",
+    "[DEMO] Demo step 21: COMMENT",
+    "[DEMO] Demo sequence complete."
+  ],
+  "server_metadata": {
+    "next_player_number": 2,
+    "initial_prompt_processing_started": true,
+    "initial_prompt_processing_complete": true
+  }
+}

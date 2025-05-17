@@ -31,7 +31,7 @@ game_state = {
     'puzzle_states': {},
     'temporary_objects': {}, # Stores active temporary objects like light bridges
     'world_log': ["Welcome to the Orb of Ingenuity Demo!"],
-    'server_metadata': {'next_player_number': 1}
+    'server_metadata': {'next_player_number': 1, 'initial_prompt_processing_started': False, 'initial_prompt_processing_complete': False}
 }
 connected_souls_by_sid = {} # sid: soul_id
 
@@ -42,10 +42,10 @@ demo_context = {
     "current_step": 0,
     "player_soul_id": None,
     "player_sid": None,
-    "orb_catalyst_artifact_id_pending_creation": None, # Renamed for clarity
-    "newly_created_tool_function_name_pending_artifact": None, # For the refactor
-    "user_description_pending_artifact": None, # For the refactor
-    "initial_prompt_processed": False
+    "orb_catalyst_artifact_id_pending_creation": None,
+    "newly_created_tool_function_name_pending_artifact": None,
+    "user_description_pending_artifact": None,
+    "script_execution_started": False
 }
 
 app = Flask(__name__, static_folder=PUBLIC_DIR, static_url_path='')
@@ -113,20 +113,19 @@ class GamePrimitiveHandler:
         log_to_world(f"{message}")
         return "Host API: Message logged to world."
 
-    def host_give_artifact_to_soul(self, params): # New combined host API
+    def host_give_artifact_to_soul(self, params):
         gs = self._get_gs()
         soul_id, artifact_id = params.get('soul_id'), params.get('artifact_id')
         if not soul_id or not artifact_id: return json.dumps({"error": "Primitive give_artifact needs soul_id and artifact_id."})
         if soul_id not in gs['souls'] : return json.dumps({"error": f"Soul {soul_id} not found."})
         if artifact_id not in gs['artifacts']: return json.dumps({"error": f"Artifact {artifact_id} not found."})
 
+        if 'inventory' not in gs['souls'][soul_id]: gs['souls'][soul_id]['inventory'] = []
         if artifact_id not in gs['souls'][soul_id]['inventory']:
             gs['souls'][soul_id]['inventory'].append(artifact_id)
             log_to_world(f"{gs['souls'][soul_id]['name']} obtained {gs['artifacts'][artifact_id]['name']}.")
-            # No broadcast from here, rely on main action flow
             return json.dumps({"message": f"Artifact {gs['artifacts'][artifact_id]['name']} given to {gs['souls'][soul_id]['name']}."})
         return json.dumps({"message": f"Artifact {gs['artifacts'][artifact_id]['name']} already in inventory of {gs['souls'][soul_id]['name']}."})
-
 
     def api_apply_effect_on_environment_object(self, params):
         gs = self._get_gs()
@@ -136,6 +135,7 @@ class GamePrimitiveHandler:
         env_obj = gs['environment_objects'][obj_id]
         for key, value in effect_to_apply.items(): env_obj['details'][key] = value
         log_to_world(f"Effect applied to env object '{obj_id}': {json.dumps(effect_to_apply)}")
+        broadcast_game_state_to_all_relevant()
         return json.dumps({"message": f"Effect applied to '{obj_id}'."})
 
     def api_check_puzzle_condition(self, params):
@@ -148,10 +148,11 @@ class GamePrimitiveHandler:
                     active_count +=1
             required_active = gs['puzzle_states'].get(puzzle_id, {}).get('target_pedestals', 3)
             if active_count >= required_active:
+                gs['puzzle_states'][puzzle_id]['is_complete'] = True
                 return json.dumps({'condition_met': True, 'message': 'All elemental pedestals are active!'})
             else:
                 return json.dumps({'condition_met': False, 'message': f'{active_count}/{required_active} pedestals active.'})
-        elif puzzle_id == "vault_access_puzzle": # Renamed from unreachable_vault for clarity in demo script
+        elif puzzle_id == "vault_access_puzzle":
             bridge_exists = any(
                 obj_data['type'] == 'light_bridge' and obj_data['location_id'] == 'vault_approach' and
                 obj_data['to'] == 'keyhole_platform_exit' and time.time() <= obj_data['creation_time'] + obj_data['duration']
@@ -159,7 +160,7 @@ class GamePrimitiveHandler:
             )
             if bridge_exists:
                 return json.dumps({'condition_met': True, 'message': 'A way to the keyhole is clear!'})
-            else: # Check if key is already used
+            else:
                 if gs['environment_objects'].get('vault_keyhole',{}).get('details',{}).get('is_unlocked'):
                      return json.dumps({'condition_met': True, 'message': 'The keyhole is already unlocked.'})
                 return json.dumps({'condition_met': False, 'message': 'The chasm blocks the way to the keyhole.'})
@@ -172,16 +173,17 @@ class GamePrimitiveHandler:
             log_to_world("The Elemental Trial is complete! The sealed door in the Trial Chamber rumbles open.")
             if 'trial_chamber' in gs['locations'] and 'sealed_door_exit' in gs['locations']['trial_chamber'].get('landmarks',{}):
                  gs['locations']['trial_chamber']['description'] += " The once sealed stone door now stands open."
-                 # Example: gs['locations']['trial_chamber']['exits']['north'] = 'vault_approach'
-            # Give Orb of Ingenuity as a reward
+            if 'elemental_trial' in gs['puzzle_states']: gs['puzzle_states']['elemental_trial']['is_complete'] = True
             if acting_soul_id and 'orb_01' in gs['artifacts']:
                 self.host_give_artifact_to_soul({'soul_id': acting_soul_id, 'artifact_id': 'orb_01'})
+            broadcast_game_state_to_all_relevant()
             return json.dumps({"message": "Elemental Trial complete! A hidden door opens. You feel a new sense of understanding (Orb of Ingenuity gained)."})
         if event_id == "open_vault_door":
             log_to_world("The Unreachable Vault door rumbles open!")
             if 'unreachable_vault' in gs['puzzle_states']: gs['puzzle_states']['unreachable_vault']['is_open'] = True
             if 'vault_approach' in gs['locations'] and 'vault_door_main' in gs['locations']['vault_approach'].get('landmarks',{}):
                  gs['locations']['vault_approach']['description'] += " The massive vault door now stands open."
+            broadcast_game_state_to_all_relevant()
             return json.dumps({"message": "Vault door opened!"})
         return json.dumps({"message": f"World event '{event_id}' triggered."})
 
@@ -199,9 +201,10 @@ class GamePrimitiveHandler:
             'id': temp_obj_id, 'type': obj_type, 'location_id': location_id,
             'from': from_landmark_id, 'to': to_landmark_id,
             'creation_time': time.time(), 'duration': int(duration),
-            'creator_soul_id': params.get('soul_id') # Good to track who made it
+            'creator_soul_id': params.get('soul_id')
         }
         log_to_world(f"A {obj_type} appeared from '{from_landmark_id}' to '{to_landmark_id}' in {gs['locations'][location_id]['name']}. It will last {duration}s.")
+        broadcast_game_state_to_all_relevant()
         return json.dumps({"message": f"{obj_type} created to '{to_landmark_id}'.", "object_id": temp_obj_id})
 
     def api_get_entity_data(self, params):
@@ -266,15 +269,21 @@ def send_debug_info(sid, message):
         socketio.emit('debugInfo', f"[SERVER DEBUG] {message}", room=demo_context["player_sid"])
 
 def process_initial_prompt_commands():
-    send_debug_info(None, f"Processing initial prompt file: {INITIAL_PROMPT_FILE}")
-    if demo_context["is_active"] and demo_context["initial_prompt_processed"]:
-        send_debug_info(None, "Initial prompt already processed for this demo session. Skipping.")
+    gs_meta = game_state['server_metadata']
+    if gs_meta['initial_prompt_processing_complete']:
+        send_debug_info(None, "Initial prompt already processed for this server session. Skipping.")
         return
+    if gs_meta['initial_prompt_processing_started']:
+        send_debug_info(None, "Initial prompt processing already started. Waiting for completion.")
+        return # Avoid re-entry if already running
+
+    gs_meta['initial_prompt_processing_started'] = True
+    send_debug_info(None, f"Processing initial prompt file: {INITIAL_PROMPT_FILE}")
+    genesis_engine_was_run = False
     try:
         with open(INITIAL_PROMPT_FILE, 'r') as f:
             prompt_commands = json.load(f)
 
-        genesis_engine_created = False
         for idx, command_entry in enumerate(prompt_commands):
             command_name = command_entry.get("name")
             args = command_entry.get("args")
@@ -286,17 +295,14 @@ def process_initial_prompt_commands():
             if command_name == 'create_dynamic_function':
                 args['host_provided_api_description_for_new_func'] = generate_api_description_for_llm_prompt()
                 result = dynamic_executor.execute_dynamic_function(command_name, args, get_external_apis_for_execution())
-                if "df_genesis_engine" in result: genesis_engine_created = True
+                if "df_genesis_engine" in result: genesis_engine_was_run = True # Mark if the function itself was created
             elif command_name == 'df_genesis_engine':
-                if not genesis_engine_created:
-                     result = "Error: df_genesis_engine called before it was created."
-                else:
-                    log_to_world("Server: Executing df_genesis_engine to build the world...", broadcast=True)
-                    result = dynamic_executor.execute_dynamic_function(command_name, args, get_external_apis_for_execution())
-                    log_to_world(f"Server: df_genesis_engine execution finished. Result: {result}", broadcast=True)
-            else: # Any other function listed in initial_prompt (e.g. system functions)
+                genesis_engine_was_run = True # Mark that it's being called
+                log_to_world("Server: Executing df_genesis_engine to build the world...", broadcast=True)
                 result = dynamic_executor.execute_dynamic_function(command_name, args, get_external_apis_for_execution())
-
+                log_to_world(f"Server: df_genesis_engine execution finished. Result: {result}", broadcast=True)
+            else:
+                result = dynamic_executor.execute_dynamic_function(command_name, args, get_external_apis_for_execution())
 
             send_debug_info(None, f"Initial CMD '{command_name}' Result: {result}")
             if isinstance(result, str) and "Error:" in result:
@@ -304,36 +310,80 @@ def process_initial_prompt_commands():
                  log_to_world(f"Server Error during initial setup with {command_name}: {result}", broadcast=True)
             eventlet.sleep(0.01)
 
-        if demo_context["is_active"]:
-            demo_context["initial_prompt_processed"] = True
         send_debug_info(None, "Finished processing initial prompt commands.")
+        gs_meta['initial_prompt_processing_complete'] = True
+
+        if genesis_engine_was_run:
+            send_debug_info(None, "Genesis engine was run. Checking for players in LIMBO_VOID...")
+            initial_start_location = 'trial_chamber'
+            if initial_start_location in game_state['locations']:
+                limbo_players_updated_sids = []
+                for soul_id, soul_data in list(game_state['souls'].items()):
+                    if soul_data.get('location_id') == "LIMBO_VOID" or soul_data.get('location_id') is None:
+                        game_state['souls'][soul_id]['location_id'] = initial_start_location
+                        log_to_world(f"{soul_data['name']} has been brought from the Void into '{game_state['locations'][initial_start_location]['name']}'.", broadcast=False) # Broadcast will happen below
+                        finalize_player_setup_after_genesis(soul_id, soul_data.get('socket_id'), from_limbo=True)
+                        if soul_data.get('socket_id'):
+                            limbo_players_updated_sids.append(soul_data.get('socket_id'))
+                
+                if limbo_players_updated_sids: # If any players were moved from limbo
+                    broadcast_game_state_to_all_relevant() # This will update everyone, including those moved
+            else:
+                log_to_world(f"Warning: Initial start location '{initial_start_location}' not found after genesis. Players in LIMBO_VOID remain.", broadcast=True)
+        
+        if demo_context["is_active"] and demo_context["player_soul_id"] and demo_context["current_step"] == 0 and not demo_context["script_execution_started"]:
+            if demo_context["script_data"] and game_state['souls'][demo_context["player_soul_id"]]['location_id'] != "LIMBO_VOID":
+                send_debug_info(demo_context["player_sid"], "Genesis complete. Spawning demo script execution now.")
+                eventlet.spawn_n(execute_demo_script_async)
 
     except Exception as e:
         error_msg = f"Critical error during initial prompt processing: {e}\n{traceback.format_exc()}"
         print(error_msg)
         log_to_world(f"Server CRITICAL ERROR during initial setup: {e}", broadcast=True)
         send_debug_info(None, error_msg)
-
+        gs_meta['initial_prompt_processing_started'] = False # Allow retry if critical error
+        gs_meta['initial_prompt_processing_complete'] = False
 
 def get_filtered_game_state_for_soul(soul_id):
     soul = game_state['souls'].get(soul_id)
     if not soul: return {'error': "Soul not found"}
+    
     current_loc_id = soul.get('location_id')
-    current_loc = game_state['locations'].get(current_loc_id) if current_loc_id else None
+    current_loc_data = None
 
-    active_temp_objects_for_client = []
-    if current_loc_id:
+    if current_loc_id == "LIMBO_VOID" or current_loc_id is None or current_loc_id not in game_state['locations']:
+        current_loc_data = {
+            'id': current_loc_id if current_loc_id else "LIMBO_VOID",
+            'name': "The Void",
+            'description': "Drifting in an unformed expanse, awaiting world genesis...",
+            'exits': {},
+            'landmarks': {},
+            'temporary_notes': "None"
+        }
+        environment_objects_in_location = []
+        active_temp_objects_for_client = []
+    else:
+        current_loc = game_state['locations'][current_loc_id]
+        current_loc_data = {
+            'id': current_loc_id, 
+            'name': current_loc['name'],
+            'description': current_loc['description'],
+            'exits': current_loc.get('exits',{}),
+            'landmarks': current_loc.get('landmarks', {}),
+        }
+        active_temp_objects_for_client = []
+        environment_objects_in_location = []
         stale_temp_ids = []
         for obj_id, obj_data in game_state['temporary_objects'].items():
             if obj_data['location_id'] == current_loc_id:
                 if time.time() > obj_data['creation_time'] + obj_data['duration']:
                     stale_temp_ids.append(obj_id)
                 else:
-                    active_temp_objects_for_client.append({ # Send more data for 3D rendering
+                    active_temp_objects_for_client.append({
                         'id': obj_data['id'], 'type': obj_data['type'],
                         'from': obj_data['from'], 'to': obj_data['to'],
                         'location_id': obj_data['location_id'],
-                        'duration': obj_data['duration'] - (time.time() - obj_data['creation_time']), # Remaining
+                        'duration': obj_data['duration'] - (time.time() - obj_data['creation_time']),
                         'original_duration': obj_data['duration']
                     })
         
@@ -344,26 +394,24 @@ def get_filtered_game_state_for_soul(soul_id):
                 if removed_obj:
                     log_to_world(f"{removed_obj['type']} from {removed_obj['from']} to {removed_obj['to']} vanished.", broadcast=False)
                     needs_broadcast = True
-            if needs_broadcast:
-                 broadcast_game_state_to_all_relevant()
-
+            if needs_broadcast: broadcast_game_state_to_all_relevant()
+        
+        for obj_id, obj_data in game_state['environment_objects'].items():
+            if obj_data.get('location_id') == current_loc_id:
+                environment_objects_in_location.append(obj_data)
+        current_loc_data['temporary_notes'] = ", ".join([f"{obj['type']} to {obj['to']}" for obj in active_temp_objects_for_client]) if active_temp_objects_for_client else "None"
 
     return {
         'playerSoul': {'id': soul['id'], 'name': soul['name'], 'locationId': current_loc_id},
-        'currentLocation': {
-            'id': current_loc_id, # Client might need this for landmark mapping
-            'name': current_loc['name'] if current_loc else "The Void",
-            'description': current_loc['description'] if current_loc else "Lost in an unformed expanse.",
-            'exits': current_loc.get('exits',{}) if current_loc else {},
-            'landmarks': current_loc.get('landmarks', {}) if current_loc else {},
-            'temporary_notes': ", ".join([f"{obj['type']} to {obj['to']}" for obj in active_temp_objects_for_client]) if active_temp_objects_for_client else "None"
-        },
+        'currentLocation': current_loc_data,
         'inventory': [{'id': aid, 'name': game_state['artifacts'][aid]['name'],
                        'description': game_state['artifacts'][aid]['description'],
                        'toolName': game_state['artifacts'][aid].get('linked_dynamic_function_name')
                       } for aid in soul.get('inventory', []) if aid in game_state['artifacts']],
         'worldLog': game_state['world_log'][-20:],
-        'activeTemporaryObjects': active_temp_objects_for_client # For 3D client
+        'activeTemporaryObjects': active_temp_objects_for_client,
+        'environmentObjectsInLocation': environment_objects_in_location,
+        'allPuzzleStates': game_state['puzzle_states']
     }
 
 def send_game_state_update(sid, soul_id):
@@ -378,7 +426,6 @@ def send_available_actions(sid, soul_id):
     state = get_filtered_game_state_for_soul(soul_id)
     if 'inventory' in state: socketio.emit('availableActions', state['inventory'], room=sid)
 
-
 @app.route('/')
 def index(): return send_from_directory(app.static_folder, 'index.html')
 
@@ -387,76 +434,77 @@ def handle_connect():
     global game_primitives_handler
     sid = request.sid
     player_soul_id = str(uuid.uuid4())
+    gs_meta = game_state['server_metadata']
 
-    next_player_num = game_state['server_metadata'].get('next_player_number', 1)
+    next_player_num = gs_meta.get('next_player_number', 1)
     player_name = f"Player_{next_player_num}"
-    game_state['server_metadata']['next_player_number'] = next_player_num + 1
+    gs_meta['next_player_number'] = next_player_num + 1
     
+    initial_location_id = "LIMBO_VOID" 
+
+    game_state['souls'][player_soul_id] = {
+        'id': player_soul_id, 'name': player_name, 
+        'location_id': initial_location_id, 
+        'inventory': [], 'type': 'player', 'socket_id': sid
+    }
+    connected_souls_by_sid[sid] = player_soul_id
+    socketio.emit('assignSoulId', player_soul_id, room=sid)
+    send_debug_info(sid, f"Player {player_name} ({player_soul_id}) connected. SID {sid}. Initial location: {initial_location_id}")
+
     if demo_context["is_active"] and not demo_context["player_soul_id"]:
-        player_name = "DemoPlayer"
+        game_state['souls'][player_soul_id]['name'] = "DemoPlayer"
+        player_name = "DemoPlayer" 
         demo_context["player_soul_id"] = player_soul_id
         demo_context["player_sid"] = sid
         send_debug_info(sid, f"DemoPlayer connected ({player_soul_id}). SID {sid}.")
-        log_to_world(f"{player_name} has entered. World is about to be born...", broadcast=True)
-        if not demo_context["initial_prompt_processed"]:
-            send_debug_info(sid, "First demo player. Initiating world genesis via initial_prompt.json.")
-            log_to_world("Server: Initiating World Genesis Protocol...", broadcast=True)
-            eventlet.spawn_n(process_initial_prompt_commands)
-    else:
-        send_debug_info(sid, f"Player {player_name} ({player_soul_id}) connected. SID {sid}.")
-        if not game_state['locations']:
-            log_to_world("Server: No world found. Building from initial prompt.", broadcast=True)
-            process_initial_prompt_commands() # Blocking for non-demo
+        log_to_world(f"{player_name} has entered. Awaiting world's birth or re-entry...", broadcast=True)
 
-    game_state['souls'][player_soul_id] = {'id': player_soul_id, 'name': player_name, 'location_id': None, 'inventory': [], 'type': 'player', 'socket_id': sid}
-    connected_souls_by_sid[sid] = player_soul_id
-    socketio.emit('assignSoulId', player_soul_id, room=sid)
+    if not gs_meta['initial_prompt_processing_started']:
+        log_to_world("Server: World genesis protocol initiating...", broadcast=True)
+        eventlet.spawn_n(process_initial_prompt_commands)
+    elif gs_meta['initial_prompt_processing_complete']:
+        send_debug_info(sid, "World genesis already complete. Finalizing player setup.")
+        finalize_player_setup_after_genesis(player_soul_id, sid)
+    else: 
+        log_to_world(f"{player_name} waits as the world forms...", broadcast=True)
+        send_debug_info(sid, "World genesis in progress. Player will be fully set up upon completion.")
 
-    def finalize_player_setup_after_genesis(p_soul_id, p_sid):
-        send_debug_info(p_sid, f"Finalizing setup for {p_soul_id} post-genesis.")
-        gs = game_state
-        if 'trial_chamber' in gs['locations']:
-            gs['souls'][p_soul_id]['location_id'] = 'trial_chamber'
-            log_to_world(f"{gs['souls'][p_soul_id]['name']} materializes in 'Trial Chamber'.", broadcast=True)
+    send_game_state_update(sid, player_soul_id)
+
+def finalize_player_setup_after_genesis(p_soul_id, p_sid, from_limbo=False):
+    send_debug_info(p_sid, f"Finalizing setup for {p_soul_id} post-genesis (from_limbo={from_limbo}).")
+    gs = game_state
+    soul = gs['souls'].get(p_soul_id)
+    if not soul: return
+
+    start_location = 'trial_chamber'
+    if soul['location_id'] == "LIMBO_VOID" or soul['location_id'] is None:
+        if start_location in gs['locations']:
+            soul['location_id'] = start_location
+            log_to_world(f"{soul['name']} materializes in '{gs['locations'][start_location]['name']}'.", broadcast=False) 
         else:
-            default_loc = list(gs['locations'].keys())[0] if gs['locations'] else None
-            gs['souls'][p_soul_id]['location_id'] = default_loc
-            log_to_world(f"Warning: 'trial_chamber' not found. {gs['souls'][p_soul_id]['name']} placed in '{default_loc if default_loc else 'The Void'}'.", broadcast=True)
+            default_loc_key = list(gs['locations'].keys())[0] if gs['locations'] else None
+            soul['location_id'] = default_loc_key
+            log_to_world(f"Warning: Start location '{start_location}' not found. {soul['name']} placed in '{gs['locations'][default_loc_key]['name'] if default_loc_key else 'The Void'}'.", broadcast=False)
 
-        # Player starts with basic elemental items. Orb and Key are now quest rewards.
-        artifacts_to_give = ["ember_01", "water_01", "wind_01", "key_01"]
-        if game_primitives_handler:
-            for art_id_key in artifacts_to_give:
-                if art_id_key in gs['artifacts']:
-                     give_params = {'soul_id': p_soul_id, 'artifact_id': art_id_key}
-                     game_primitives_handler.host_give_artifact_to_soul(give_params) # Logs internally
-                else:
-                    log_to_world(f"Warning: Artifact {art_id_key} not found post-genesis for {p_soul_id}", broadcast=True)
-        
+    artifacts_to_give = ["ember_01", "water_01", "wind_01", "key_01"]
+    if game_primitives_handler:
+        for art_id_key in artifacts_to_give:
+            if art_id_key in gs['artifacts'] and art_id_key not in soul.get('inventory', []):
+                 give_params = {'soul_id': p_soul_id, 'artifact_id': art_id_key}
+                 game_primitives_handler.host_give_artifact_to_soul(give_params) 
+            elif art_id_key not in gs['artifacts']:
+                log_to_world(f"Warning: Artifact {art_id_key} not found post-genesis for {p_soul_id}", broadcast=False)
+    
+    if p_sid: 
         send_game_state_update(p_sid, p_soul_id)
         send_available_actions(p_sid, p_soul_id)
-        if demo_context["is_active"] and p_soul_id == demo_context["player_soul_id"] and demo_context["current_step"] == 0:
-            if demo_context["script_data"]:
-                send_debug_info(p_sid, "Spawning demo script execution.")
-                eventlet.spawn_n(execute_demo_script_async)
 
-    if demo_context["is_active"] and player_soul_id == demo_context["player_soul_id"]:
-        def delayed_finalize():
-            max_wait = 90; waited = 0
-            while not demo_context["initial_prompt_processed"] and waited < max_wait:
-                eventlet.sleep(1); waited +=1
-            if demo_context["initial_prompt_processed"]:
-                send_debug_info(sid, "Genesis complete. Finalizing player setup.")
-                finalize_player_setup_after_genesis(player_soul_id, sid)
-            else:
-                send_debug_info(sid, "Genesis timeout. Player setup might be incomplete.")
-                log_to_world("Server Warning: World genesis timed out.", broadcast=True)
-                finalize_player_setup_after_genesis(player_soul_id, sid) # Attempt anyway
-        eventlet.spawn_n(delayed_finalize)
-    else:
-        if game_state['locations']: finalize_player_setup_after_genesis(player_soul_id, sid)
-        else: log_to_world(f"Player {player_name} connected, world genesis pending/failed.", broadcast=True)
-
+    if demo_context["is_active"] and p_soul_id == demo_context["player_soul_id"] and \
+       demo_context["current_step"] == 0 and demo_context["script_data"] and \
+       soul['location_id'] != "LIMBO_VOID" and not demo_context["script_execution_started"]:
+        send_debug_info(p_sid, "Spawning demo script execution as player is now finalized.")
+        eventlet.spawn_n(execute_demo_script_async)
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -466,19 +514,18 @@ def handle_disconnect():
         game_state['souls'][soul_id]['socket_id'] = None
         if demo_context["is_active"] and demo_context["player_soul_id"] == soul_id:
             send_debug_info(None, "DemoPlayer disconnected. Stopping demo.")
-            demo_context["is_active"] = False # Stop script
+            demo_context["is_active"] = False
             demo_context["player_soul_id"] = None; demo_context["player_sid"] = None
             demo_context["current_step"] = 0; demo_context["orb_catalyst_artifact_id_pending_creation"] = None
             demo_context["newly_created_tool_function_name_pending_artifact"] = None
             demo_context["user_description_pending_artifact"] = None
-            # demo_context["initial_prompt_processed"] = False # Optional: re-gen on next demo
-
+            demo_context["script_execution_started"] = False
 
 @socketio.on('performAction')
 def handle_perform_action(data):
     sid = request.sid
-    if demo_context["is_active"] and demo_context["player_sid"] == sid and demo_context["script_data"] and demo_context["current_step"] < len(demo_context["script_data"]):
-        socketio.emit('actionResult', {'success': False, 'message': "DemoPlayer actions are scripted."}, room=sid)
+    if demo_context["is_active"] and demo_context["player_sid"] == sid and demo_context["script_data"] and demo_context["current_step"] < len(demo_context["script_data"]) and demo_context["script_data"][demo_context["current_step"]]["action"] != "USE_ARTIFACT":
+        socketio.emit('actionResult', {'success': False, 'message': "DemoPlayer actions are scripted. Please wait for script completion or next interaction point."}, room=sid)
         return
 
     player_soul_id = connected_souls_by_sid.get(sid)
@@ -491,15 +538,17 @@ def handle_perform_action(data):
     response = {'success': success_flag, 'message': str(result_message)}
     if event_type:
         response['event'] = event_type
-        response.update(event_data) # e.g., prompt_for_tool_artifact_id
+        response.update(event_data)
 
     socketio.emit('actionResult', response, room=sid)
     broadcast_game_state_to_all_relevant()
     send_available_actions(sid, player_soul_id)
 
-
 def _internal_perform_action_logic(player_soul_id, artifact_id_or_name, action_args, artifact_name_starts_with=False):
     soul = game_state['souls'][player_soul_id]
+    if soul['location_id'] == "LIMBO_VOID" or soul['location_id'] is None:
+        return "Cannot perform actions while in The Void.", False, None, {}
+        
     artifact = None; actual_artifact_id = None; event_type = None; event_data = {}
 
     if artifact_name_starts_with:
@@ -548,16 +597,18 @@ def _internal_perform_action_logic(player_soul_id, artifact_id_or_name, action_a
         except (json.JSONDecodeError, TypeError):
             return execution_result, success, None, {}
 
-
 @socketio.on('submitToolDescription')
 def handle_submit_tool_description(data):
     sid = request.sid
-    if demo_context["is_active"] and demo_context["player_sid"] == sid and demo_context["script_data"]:
-        log_to_world("[DEMO WARNING] DemoPlayer tool description submission ignored (script handles it).", broadcast=True)
+    if demo_context["is_active"] and demo_context["player_sid"] == sid and demo_context["script_data"] and demo_context["script_data"][demo_context["current_step"]]["action"] != "DESCRIBE_TOOL":
+        log_to_world("[DEMO WARNING] DemoPlayer tool description submission ignored (script handles it or not at that step).", broadcast=True)
         return
 
     player_soul_id = connected_souls_by_sid.get(sid)
     if not player_soul_id: return
+    if game_state['souls'][player_soul_id]['location_id'] == "LIMBO_VOID" or game_state['souls'][player_soul_id]['location_id'] is None:
+        socketio.emit('actionResult', {'success': False, 'message': "Cannot describe tools while in The Void."}, room=sid)
+        return
 
     description = data.get('description'); catalyst_artifact_id = data.get('catalyst_artifact_id')
     message, success = _internal_submit_tool_description_logic(player_soul_id, description, catalyst_artifact_id)
@@ -566,14 +617,13 @@ def handle_submit_tool_description(data):
     broadcast_game_state_to_all_relevant()
     send_available_actions(sid, player_soul_id)
 
-
 def _internal_submit_tool_description_logic(player_soul_id, description, catalyst_artifact_id):
     soul = game_state['souls'][player_soul_id]
     catalyst_artifact = game_state['artifacts'].get(catalyst_artifact_id)
-    if not description or not catalyst_artifact: return "Missing description or catalyst for tool creation.", False
+    if not description or not catalyst_artifact_id: return "Missing description or catalyst_artifact_id for tool creation.", False
+    if not catalyst_artifact: return f"Catalyst artifact {catalyst_artifact_id} not found.", False
 
     new_tool_func_name = f"df_user_{player_soul_id[:4]}_{str(uuid.uuid4())[:4]}"
-    # This description is FOR THE LLM to generate the TOOL'S FUNCTION (e.g. light bridge)
     tool_func_desc_for_llm = (
         f"Player described: '{description}'. This function implements that tool. "
         f"Example for 'Create a temporary light bridge to the keyhole platform': "
@@ -600,7 +650,6 @@ def _internal_submit_tool_description_logic(player_soul_id, description, catalys
     else:
         send_debug_info(soul.get('socket_id'), f"Tool func '{new_tool_func_name}' created. Now creating charged artifact using 'df_system_finalize_orb_charging'.")
         
-        # Now, use df_system_finalize_orb_charging to create the actual artifact
         finalize_params = {
             'soul_id': player_soul_id,
             'catalyst_artifact_id': catalyst_artifact_id,
@@ -624,7 +673,6 @@ def _internal_submit_tool_description_logic(player_soul_id, description, catalys
                 final_msg = parsed_final_result.get("message", "Orb resonates with new power!")
                 log_to_world(f"{soul['name']}: {final_msg}", broadcast=True)
 
-                # Clean up demo context state if this was a demo-driven creation
                 if demo_context["is_active"] and demo_context["player_soul_id"] == player_soul_id:
                     demo_context["orb_catalyst_artifact_id_pending_creation"] = None
                     demo_context["newly_created_tool_function_name_pending_artifact"] = None
@@ -633,7 +681,6 @@ def _internal_submit_tool_description_logic(player_soul_id, description, catalys
         except json.JSONDecodeError:
             log_to_world(f"{soul['name']}'s Orb artifact finalization returned invalid JSON: {finalization_result_str}", broadcast=True)
             return "Orb finalization failed to return valid status.", False
-
 
 @socketio.on('requestState')
 def handle_request_state():
@@ -654,16 +701,20 @@ def load_game_state():
         print("[SERVER] Loading game state from save...")
         try:
             with open(SAVE_FILE, 'r') as f: loaded_data = json.load(f)
-            # Ensure all top-level keys exist
             for key in ['souls', 'locations', 'artifacts', 'environment_objects', 'puzzle_states', 'temporary_objects', 'world_log', 'server_metadata']:
-                if key not in loaded_data: loaded_data[key] = {} if key != 'world_log' else [] # Initialize if missing
+                if key not in loaded_data: loaded_data[key] = {} if key not in ['world_log', 'server_metadata'] else ([] if key == 'world_log' else {'next_player_number': 1, 'initial_prompt_processing_started': False, 'initial_prompt_processing_complete': False})
+            if 'initial_prompt_processing_started' not in loaded_data['server_metadata']: loaded_data['server_metadata']['initial_prompt_processing_started'] = False
+            if 'initial_prompt_processing_complete' not in loaded_data['server_metadata']: loaded_data['server_metadata']['initial_prompt_processing_complete'] = False
+
             game_state.update(loaded_data)
             if 'next_player_number' not in game_state['server_metadata']: game_state['server_metadata']['next_player_number'] = 1
             print("[SERVER] Game state loaded.")
         except Exception as e:
             print(f"[SERVER] Error loading game state: {e}. Starting with default.")
+            game_state['server_metadata'] = {'next_player_number': 1, 'initial_prompt_processing_started': False, 'initial_prompt_processing_complete': False}
     else:
         print("[SERVER] No save file found. Starting with default empty state.")
+        game_state['server_metadata'] = {'next_player_number': 1, 'initial_prompt_processing_started': False, 'initial_prompt_processing_complete': False}
 
 def signal_handler_save_on_exit(sig, frame):
     print('[SERVER] SIGINT received, saving game state before exit...')
@@ -681,47 +732,90 @@ def load_demo_script(filepath):
         send_debug_info(None, f"[DEMO] Error loading demo script {filepath}: {e}")
         return None
 
+def _internal_move_player_for_demo(player_soul_id, target_location_id):
+    if player_soul_id in game_state['souls'] and target_location_id in game_state['locations']:
+        current_location_name = game_state['locations'].get(game_state['souls'][player_soul_id]['location_id'], {}).get('name', 'Unknown')
+        target_location_name = game_state['locations'][target_location_id].get('name', target_location_id)
+        game_state['souls'][player_soul_id]['location_id'] = target_location_id
+        log_to_world(f"[DEMO] {game_state['souls'][player_soul_id]['name']} moved from '{current_location_name}' to '{target_location_name}'.", broadcast=True)
+        return True
+    log_to_world(f"[DEMO] Failed to move {player_soul_id} to {target_location_id}.", broadcast=True)
+    return False
+
 def execute_demo_script_async():
+    if demo_context.get("script_execution_started", False):
+        send_debug_info(demo_context.get("player_sid"), "[DEMO] Script execution already initiated by another task. This spawn will exit.")
+        return
+    demo_context["script_execution_started"] = True
+
     send_debug_info(demo_context.get("player_sid"), "[DEMO] Starting script execution...")
     log_to_world("[DEMO] Demo sequence initiated.", broadcast=True)
 
-    while demo_context["is_active"] and demo_context["script_data"] and \
-          demo_context["current_step"] < len(demo_context["script_data"]):
-        if not demo_context["player_soul_id"] or demo_context["player_soul_id"] not in game_state["souls"]:
-            send_debug_info(None, "[DEMO] DemoPlayer not found. Stopping script.")
-            demo_context["is_active"] = False; break
+    try:
+        while demo_context["is_active"] and demo_context["script_data"] and \
+              demo_context["current_step"] < len(demo_context["script_data"]):
+            if not demo_context["player_soul_id"] or demo_context["player_soul_id"] not in game_state["souls"]:
+                send_debug_info(None, "[DEMO] DemoPlayer not found. Stopping script.")
+                demo_context["is_active"] = False; break
+            
+            if game_state["souls"][demo_context["player_soul_id"]]['location_id'] == "LIMBO_VOID":
+                send_debug_info(demo_context["player_sid"], "[DEMO] Waiting for player to exit LIMBO_VOID before continuing script...")
+                eventlet.sleep(1); continue
 
-        step = demo_context["script_data"][demo_context["current_step"]]
-        action = step.get("action"); log_msg = step.get("log_message", f"Demo step {demo_context['current_step'] + 1}: {action}")
-        send_debug_info(demo_context["player_sid"], f"[DEMO] {log_msg}")
-        log_to_world(f"[DEMO] {log_msg}", broadcast=True)
+            step = demo_context["script_data"][demo_context["current_step"]]
+            action = step.get("action"); log_msg = step.get("log_message", f"Demo step {demo_context['current_step'] + 1}: {action}")
+            send_debug_info(demo_context["player_sid"], f"[DEMO] {log_msg}")
+            log_to_world(f"[DEMO] {log_msg}", broadcast=True)
 
-        if action == "WAIT": eventlet.sleep(step.get("duration_ms", 1000) / 1000.0)
-        elif action == "USE_ARTIFACT":
-            name_to_use = step.get("artifact_name", step.get("artifact_name_starts_with"))
-            is_prefix = bool(step.get("artifact_name_starts_with"))
-            res_msg, success, event_type, event_data = _internal_perform_action_logic(demo_context["player_soul_id"], name_to_use, step.get("args", {}), artifact_name_starts_with=is_prefix)
-            log_to_world(f"[DEMO] Action result: {res_msg}", broadcast=True)
-            if event_type == "PROMPT_USER_FOR_TOOL_DESCRIPTION":
-                 demo_context["orb_catalyst_artifact_id_pending_creation"] = event_data['prompt_for_tool_artifact_id']
-            elif not success: send_debug_info(demo_context["player_sid"], f"[DEMO] Error in USE_ARTIFACT: {res_msg}. Stopping."); demo_context["is_active"] = False; break
-        elif action == "DESCRIBE_TOOL":
-            if not demo_context["orb_catalyst_artifact_id_pending_creation"]:
-                send_debug_info(demo_context["player_sid"], "[DEMO] Error: DESCRIBE_TOOL no catalyst pending. Stopping."); demo_context["is_active"] = False; break
-            res_msg, success = _internal_submit_tool_description_logic(demo_context["player_soul_id"], step.get("description"), demo_context["orb_catalyst_artifact_id_pending_creation"])
-            log_to_world(f"[DEMO] Tool description result: {res_msg}", broadcast=True)
-            # State related to pending creation is cleared within _internal_submit_tool_description_logic on success for demo player
-            if not success: send_debug_info(demo_context["player_sid"], f"[DEMO] Error in DESCRIBE_TOOL: {res_msg}. Stopping."); demo_context["is_active"] = False; break
-        elif action == "COMMENT": pass
-        demo_context["current_step"] += 1
-        broadcast_game_state_to_all_relevant()
-        if demo_context["player_sid"] and demo_context["player_soul_id"]: send_available_actions(demo_context["player_sid"], demo_context["player_soul_id"])
-        eventlet.sleep(0.2)
+            if action == "WAIT": eventlet.sleep(step.get("duration_ms", 1000) / 1000.0)
+            elif action == "MOVE_PLAYER_TO":
+                _internal_move_player_for_demo(demo_context["player_soul_id"], step.get("target_location_id"))
+                broadcast_game_state_to_all_relevant()
+                eventlet.sleep(0.5)
+            elif action == "USE_ARTIFACT":
+                name_to_use = step.get("artifact_name", step.get("artifact_name_starts_with"))
+                is_prefix = bool(step.get("artifact_name_starts_with"))
+                res_msg, success, event_type, event_data = _internal_perform_action_logic(demo_context["player_soul_id"], name_to_use, step.get("args", {}), artifact_name_starts_with=is_prefix)
+                log_to_world(f"[DEMO] Action result: {res_msg}", broadcast=True)
+                if event_type == "PROMPT_USER_FOR_TOOL_DESCRIPTION":
+                     demo_context["orb_catalyst_artifact_id_pending_creation"] = event_data['prompt_for_tool_artifact_id']
+                elif not success: 
+                    send_debug_info(demo_context["player_sid"], f"[DEMO] Error in USE_ARTIFACT: {res_msg}. Stopping demo.")
+                    demo_context["is_active"] = False; break 
+            elif action == "DESCRIBE_TOOL":
+                catalyst_id = demo_context.get("orb_catalyst_artifact_id_pending_creation")
+                if not catalyst_id: 
+                    player_inv = game_state['souls'][demo_context["player_soul_id"]]['inventory']
+                    for art_id in player_inv:
+                        if game_state['artifacts'][art_id]['name'] == "Orb of Ingenuity" or game_state['artifacts'][art_id]['id'] == "orb_01":
+                            catalyst_id = art_id; break
+                if not catalyst_id:
+                    send_debug_info(demo_context["player_sid"], "[DEMO] Error: DESCRIBE_TOOL no catalyst pending or Orb of Ingenuity found. Stopping demo.")
+                    demo_context["is_active"] = False; break
+                
+                res_msg, success = _internal_submit_tool_description_logic(demo_context["player_soul_id"], step.get("description"), catalyst_id)
+                log_to_world(f"[DEMO] Tool description result: {res_msg}", broadcast=True)
+                if not success: 
+                    send_debug_info(demo_context["player_sid"], f"[DEMO] Error in DESCRIBE_TOOL: {res_msg}. Stopping demo.")
+                    demo_context["is_active"] = False; break
+            elif action == "COMMENT": pass
+            
+            demo_context["current_step"] += 1
+            broadcast_game_state_to_all_relevant() 
+            if demo_context["player_sid"] and demo_context["player_soul_id"] in game_state['souls'] : 
+                send_available_actions(demo_context["player_sid"], demo_context["player_soul_id"])
+            eventlet.sleep(0.2) 
 
-    if demo_context["is_active"]: send_debug_info(demo_context.get("player_sid"), "[DEMO] Script finished.")
-    log_to_world("[DEMO] Demo sequence complete.", broadcast=True)
-    demo_context["is_active"] = False # Mark demo as complete
-
+        if demo_context["is_active"]: 
+            send_debug_info(demo_context.get("player_sid"), "[DEMO] Script finished.")
+            log_to_world("[DEMO] Demo sequence complete.", broadcast=True)
+    finally:
+        demo_context["script_execution_started"] = False
+        if not demo_context["is_active"]: 
+            demo_context["current_step"] = 0 
+            demo_context["orb_catalyst_artifact_id_pending_creation"] = None
+            demo_context["newly_created_tool_function_name_pending_artifact"] = None
+            demo_context["user_description_pending_artifact"] = None
 
 def main():
     global game_state, game_primitives_handler, demo_context
@@ -730,14 +824,15 @@ def main():
     parser.add_argument('--demo', type=str, metavar='SCRIPT_FILE', help='Run in demo mode with specified JSON script.')
     args = parser.parse_args()
 
-    default_game_state = {'souls': {}, 'locations': {}, 'artifacts': {}, 'environment_objects': {}, 'puzzle_states': {}, 'temporary_objects': {}, 'world_log': ["Welcome!"], 'server_metadata': {'next_player_number': 1}}
+    default_game_state_metadata = {'next_player_number': 1, 'initial_prompt_processing_started': False, 'initial_prompt_processing_complete': False}
+    default_game_state = {'souls': {}, 'locations': {}, 'artifacts': {}, 'environment_objects': {}, 'puzzle_states': {}, 'temporary_objects': {}, 'world_log': ["Welcome!"], 'server_metadata': default_game_state_metadata.copy()}
 
     if args.demo:
         demo_script_content = load_demo_script(args.demo)
         if demo_script_content:
             demo_context["is_active"] = True; demo_context["script_path"] = args.demo
             demo_context["script_data"] = demo_script_content; demo_context["current_step"] = 0
-            demo_context["initial_prompt_processed"] = False
+            demo_context["script_execution_started"] = False # Initialize explicitly
             print(f"[SERVER] Demo mode activated with script: {args.demo}")
         else:
             print(f"[SERVER] Failed to load demo script {args.demo}. Starting normally.")
@@ -753,14 +848,11 @@ def main():
             try: os.remove(SAVE_FILE); print(f"[SERVER] Deleted save file: {SAVE_FILE}")
             except Exception as e: print(f"[SERVER] Error deleting save file {SAVE_FILE}: {e}")
         dynamic_executor.clear_function_store()
-        game_state = json.loads(json.dumps(default_game_state))
+        game_state = json.loads(json.dumps(default_game_state)) 
         game_state['world_log'] = ["Welcome (World Recreated)!"]
-        if demo_context["is_active"]: demo_context["initial_prompt_processed"] = False
+        game_state['server_metadata'] = default_game_state_metadata.copy()
     else:
-        load_game_state()
-        if not game_state['locations'] and demo_context["is_active"]:
-             demo_context["initial_prompt_processed"] = False
-
+        load_game_state() 
 
     game_primitives_handler = GamePrimitiveHandler(get_current_game_state, socketio)
 
@@ -778,14 +870,11 @@ def main():
     register_host_api_for_llm('host_get_location_data', "Retrieves location data. Returns JSON.", {'type':'object', 'properties': {'location_id':{'type':'string'}}, 'required':['location_id']}, game_primitives_handler.api_get_location_data)
     register_host_api_for_llm('host_get_environment_object_data', "Retrieves env object data. Returns JSON.", {'type':'object', 'properties': {'object_id':{'type':'string'}}, 'required':['object_id']}, game_primitives_handler.api_get_environment_object_data)
 
-
-    if not demo_context["is_active"]:
-        send_debug_info(None, "Non-demo mode: Processing initial prompt at startup.")
-        process_initial_prompt_commands()
-    else:
-        send_debug_info(None, "Demo mode: World genesis on first player connection.")
-        if args.recreate : game_state['world_log'] = [f"[DEMO] Server awaiting DemoPlayer. World will be born live..."]
-
+    if not demo_context["is_active"] and not game_state['server_metadata']['initial_prompt_processing_started']:
+        send_debug_info(None, "Non-demo mode: Processing initial prompt at startup if not already done.")
+        process_initial_prompt_commands() 
+    elif demo_context["is_active"] and (args.recreate or not game_state['server_metadata']['initial_prompt_processing_complete']):
+         game_state['world_log'] = [f"[DEMO] Server awaiting DemoPlayer. World will be born live..."]
 
     signal.signal(signal.SIGINT, signal_handler_save_on_exit)
     print(f"Server starting on http://0.0.0.0:{PORT}")
@@ -793,3 +882,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

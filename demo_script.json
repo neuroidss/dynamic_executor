@@ -42,7 +42,7 @@
   {
     "action": "WAIT",
     "duration_ms": 3000,
-    "log_message": "Elemental Trial should be complete. Orb of Ingenuity acquired."
+    "log_message": "Elemental Trial should be complete. Orb of Ingenuity acquired. Sealed door should look open."
   },
   {
     "action": "USE_ARTIFACT",
@@ -65,15 +65,32 @@
     "log_message": "New artifact 'Orb: Create a temporary l...' should be created and given."
   },
   {
+    "action": "COMMENT",
+    "text": "Player has the light bridge orb. Now moving to Vault Approach BEFORE using it."
+  },
+  {
+    "action": "MOVE_PLAYER_TO",
+    "target_location_id": "vault_approach",
+    "log_message": "DemoPlayer moves to Vault Approach (simulated for script)."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 1500
+  },
+  {
     "action": "USE_ARTIFACT",
     "artifact_name_starts_with": "Orb: Create a temporary l",
     "args": {},
-    "log_message": "DemoPlayer uses the newly created light bridge Orb."
+    "log_message": "DemoPlayer uses the newly created light bridge Orb (in Vault Approach)."
   },
   {
     "action": "WAIT",
     "duration_ms": 3000,
-    "log_message": "Light bridge to keyhole platform should be active."
+    "log_message": "Light bridge in Vault Approach should be active towards 'keyhole_platform_exit'."
+  },
+  {
+    "action": "COMMENT",
+    "text": "Player is at Vault Approach with an active light bridge to the keyhole platform."
   },
   {
     "action": "USE_ARTIFACT",
@@ -84,6 +101,10 @@
   {
     "action": "WAIT",
     "duration_ms": 3000,
-    "log_message": "Vault door should open. Demo complete!"
+    "log_message": "Vault door should now open as the condition (light bridge in Vault Approach) is met."
+  },
+  {
+    "action": "COMMENT",
+    "text": "Demo complete!"
   }
 ]

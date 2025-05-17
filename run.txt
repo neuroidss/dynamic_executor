@@ -25,12 +25,11 @@ Initializing server for Orb of Ingenuity Demo...
 [DEBUG GLOBAL] Host API 'host_get_entity_data' registered for LLM use.
 [DEBUG GLOBAL] Host API 'host_get_location_data' registered for LLM use.
 [DEBUG GLOBAL] Host API 'host_get_environment_object_data' registered for LLM use.
-[DEBUG GLOBAL] Demo mode: World genesis on first player connection.
 Server starting on http://0.0.0.0:3001
-[DEBUG b9_ZFUmDHxmyylXOAAAB] DemoPlayer connected (926b11f7-a096-4df2-8797-db1830f6d23d). SID b9_ZFUmDHxmyylXOAAAB.
-[WORLD] DemoPlayer has entered. World is about to be born...
-[DEBUG b9_ZFUmDHxmyylXOAAAB] First demo player. Initiating world genesis via initial_prompt.json.
-[WORLD] Server: Initiating World Genesis Protocol...
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] Player Player_1 (d02fa7b8-d54e-4528-8f49-2bce0cf44dd6) connected. SID 0Oy7LxAtNf2UzhNRAAAB. Initial location: LIMBO_VOID
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] DemoPlayer connected (d02fa7b8-d54e-4528-8f49-2bce0cf44dd6). SID 0Oy7LxAtNf2UzhNRAAAB.
+[WORLD] DemoPlayer has entered. Awaiting world's birth or re-entry...
+[WORLD] Server: World genesis protocol initiating...
 [DEBUG GLOBAL] Processing initial prompt file: initial_prompt.json
 [DEBUG GLOBAL] Initial Prompt CMD 1: create_dynamic_function with args: {"new_function_name": "df_initiate_orb_tool_creation", "new_function_description": "This function is...
 [DEBUG DynamicExecutor] Attempting to execute function: create_dynamic_function with params: {"new_function_name": "df_initiate_orb_tool_creation", "new_function_description": "This function is called when the Orb of Ingenuity is used. It signals the client to prompt the user for a descriptio...
@@ -505,344 +504,158 @@ def df_genesis_engine(params):
 [WORLD] Server: df_genesis_engine execution finished. Result: World Genesis complete via df_genesis_engine!
 [DEBUG GLOBAL] Initial CMD 'df_genesis_engine' Result: World Genesis complete via df_genesis_engine!
 [DEBUG GLOBAL] Finished processing initial prompt commands.
-[DEBUG b9_ZFUmDHxmyylXOAAAB] Genesis complete. Finalizing player setup.
-[DEBUG b9_ZFUmDHxmyylXOAAAB] Finalizing setup for 926b11f7-a096-4df2-8797-db1830f6d23d post-genesis.
-[WORLD] DemoPlayer materializes in 'Trial Chamber'.
+[DEBUG GLOBAL] Genesis engine was run. Checking for players in LIMBO_VOID...
+[WORLD] DemoPlayer has been brought from the Void into 'Trial Chamber'.
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] Finalizing setup for d02fa7b8-d54e-4528-8f49-2bce0cf44dd6 post-genesis (from_limbo=True).
 [WORLD] DemoPlayer obtained Flaming Ember.
 [WORLD] DemoPlayer obtained Water Droplet.
 [WORLD] DemoPlayer obtained Gust of Wind.
 [WORLD] DemoPlayer obtained Vault Key.
-[DEBUG b9_ZFUmDHxmyylXOAAAB] Spawning demo script execution.
-[DEBUG b9_ZFUmDHxmyylXOAAAB] [DEMO] Starting script execution...
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] Spawning demo script execution as player is now finalized.
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] Genesis complete. Spawning demo script execution now.
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] Starting script execution...
 [WORLD] [DEMO] Demo sequence initiated.
-[DEBUG b9_ZFUmDHxmyylXOAAAB] [DEMO] Demo step 1: COMMENT
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] Demo step 1: COMMENT
 [WORLD] [DEMO] Demo step 1: COMMENT
-[DEBUG b9_ZFUmDHxmyylXOAAAB] [DEMO] Demo step 2: WAIT
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] Script execution already initiated by another task. This spawn will exit.
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] Demo step 2: WAIT
 [WORLD] [DEMO] Demo step 2: WAIT
-[DEBUG b9_ZFUmDHxmyylXOAAAB] [DEMO] DemoPlayer uses Flaming Ember on pedestal_fire.
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] DemoPlayer uses Flaming Ember on pedestal_fire.
 [WORLD] [DEMO] DemoPlayer uses Flaming Ember on pedestal_fire.
-[DEBUG b9_ZFUmDHxmyylXOAAAB] Soul 926b11f7-a096-4df2-8797-db1830f6d23d using 'Flaming Ember' (df_interact_with_pedestal) with args: {"soul_id": "926b11f7-a096-4df2-8797-db1830f6d23d", "location_id": "trial_chamber", "artifact_id": "
-[DEBUG DynamicExecutor] Attempting to execute function: df_interact_with_pedestal with params: {"soul_id": "926b11f7-a096-4df2-8797-db1830f6d23d", "location_id": "trial_chamber", "artifact_id": "ember_01", "artifact_properties": {"element_type": "fire"}, "target_pedestal_id": "pedestal_fire"}...
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] Soul d02fa7b8-d54e-4528-8f49-2bce0cf44dd6 using 'Flaming Ember' (df_interact_with_pedestal) with args: {"soul_id": "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6", "location_id": "trial_chamber", "artifact_id": "
+[DEBUG DynamicExecutor] Attempting to execute function: df_interact_with_pedestal with params: {"soul_id": "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6", "location_id": "trial_chamber", "artifact_id": "ember_01", "artifact_properties": {"element_type": "fire"}, "target_pedestal_id": "pedestal_fire"}...
 [DEBUG DynamicExecutor] Executing dynamically loaded function df_interact_with_pedestal from string...
 [WORLD] Effect applied to env object 'pedestal_fire': {"is_active": true, "last_element_placed": "fire"}
-[DEBUG b9_ZFUmDHxmyylXOAAAB] Dynamic func 'df_interact_with_pedestal' result: fire placed on pedestal. It glows!
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] Dynamic func 'df_interact_with_pedestal' result: fire placed on pedestal. It glows!
 [WORLD] [DEMO] Action result: fire placed on pedestal. It glows!
-[DEBUG b9_ZFUmDHxmyylXOAAAB] [DEMO] Demo step 4: WAIT
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] Demo step 4: WAIT
 [WORLD] [DEMO] Demo step 4: WAIT
-[DEBUG b9_ZFUmDHxmyylXOAAAB] [DEMO] DemoPlayer uses Water Droplet on pedestal_water.
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] DemoPlayer uses Water Droplet on pedestal_water.
 [WORLD] [DEMO] DemoPlayer uses Water Droplet on pedestal_water.
-[DEBUG b9_ZFUmDHxmyylXOAAAB] Soul 926b11f7-a096-4df2-8797-db1830f6d23d using 'Water Droplet' (df_interact_with_pedestal) with args: {"soul_id": "926b11f7-a096-4df2-8797-db1830f6d23d", "location_id": "trial_chamber", "artifact_id": "
-[DEBUG DynamicExecutor] Attempting to execute function: df_interact_with_pedestal with params: {"soul_id": "926b11f7-a096-4df2-8797-db1830f6d23d", "location_id": "trial_chamber", "artifact_id": "water_01", "artifact_properties": {"element_type": "water"}, "target_pedestal_id": "pedestal_water"}...
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] Soul d02fa7b8-d54e-4528-8f49-2bce0cf44dd6 using 'Water Droplet' (df_interact_with_pedestal) with args: {"soul_id": "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6", "location_id": "trial_chamber", "artifact_id": "
+[DEBUG DynamicExecutor] Attempting to execute function: df_interact_with_pedestal with params: {"soul_id": "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6", "location_id": "trial_chamber", "artifact_id": "water_01", "artifact_properties": {"element_type": "water"}, "target_pedestal_id": "pedestal_water"}...
 [DEBUG DynamicExecutor] Executing dynamically loaded function df_interact_with_pedestal from string...
 [WORLD] Effect applied to env object 'pedestal_water': {"is_active": true, "last_element_placed": "water"}
-[DEBUG b9_ZFUmDHxmyylXOAAAB] Dynamic func 'df_interact_with_pedestal' result: water placed on pedestal. It glows!
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] Dynamic func 'df_interact_with_pedestal' result: water placed on pedestal. It glows!
 [WORLD] [DEMO] Action result: water placed on pedestal. It glows!
-[DEBUG b9_ZFUmDHxmyylXOAAAB] [DEMO] Demo step 6: WAIT
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] Demo step 6: WAIT
 [WORLD] [DEMO] Demo step 6: WAIT
-[DEBUG b9_ZFUmDHxmyylXOAAAB] [DEMO] DemoPlayer uses Gust of Wind on pedestal_wind.
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] DemoPlayer uses Gust of Wind on pedestal_wind.
 [WORLD] [DEMO] DemoPlayer uses Gust of Wind on pedestal_wind.
-[DEBUG b9_ZFUmDHxmyylXOAAAB] Soul 926b11f7-a096-4df2-8797-db1830f6d23d using 'Gust of Wind' (df_interact_with_pedestal) with args: {"soul_id": "926b11f7-a096-4df2-8797-db1830f6d23d", "location_id": "trial_chamber", "artifact_id": "
-[DEBUG DynamicExecutor] Attempting to execute function: df_interact_with_pedestal with params: {"soul_id": "926b11f7-a096-4df2-8797-db1830f6d23d", "location_id": "trial_chamber", "artifact_id": "wind_01", "artifact_properties": {"element_type": "wind"}, "target_pedestal_id": "pedestal_wind"}...
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] Soul d02fa7b8-d54e-4528-8f49-2bce0cf44dd6 using 'Gust of Wind' (df_interact_with_pedestal) with args: {"soul_id": "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6", "location_id": "trial_chamber", "artifact_id": "
+[DEBUG DynamicExecutor] Attempting to execute function: df_interact_with_pedestal with params: {"soul_id": "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6", "location_id": "trial_chamber", "artifact_id": "wind_01", "artifact_properties": {"element_type": "wind"}, "target_pedestal_id": "pedestal_wind"}...
 [DEBUG DynamicExecutor] Executing dynamically loaded function df_interact_with_pedestal from string...
 [WORLD] Effect applied to env object 'pedestal_wind': {"is_active": true, "last_element_placed": "wind"}
 [WORLD] The Elemental Trial is complete! The sealed door in the Trial Chamber rumbles open.
 [WORLD] DemoPlayer obtained Orb of Ingenuity.
-[DEBUG b9_ZFUmDHxmyylXOAAAB] Dynamic func 'df_interact_with_pedestal' result: All pedestals active! Trial complete!
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] Dynamic func 'df_interact_with_pedestal' result: All pedestals active! Trial complete!
 [WORLD] [DEMO] Action result: All pedestals active! Trial complete!
-[DEBUG b9_ZFUmDHxmyylXOAAAB] [DEMO] Elemental Trial should be complete. Orb of Ingenuity acquired.
-[WORLD] [DEMO] Elemental Trial should be complete. Orb of Ingenuity acquired.
-[DEBUG b9_ZFUmDHxmyylXOAAAB] [DEMO] DemoPlayer uses Orb of Ingenuity.
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] Elemental Trial should be complete. Orb of Ingenuity acquired. Sealed door should look open.
+[WORLD] [DEMO] Elemental Trial should be complete. Orb of Ingenuity acquired. Sealed door should look open.
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] DemoPlayer uses Orb of Ingenuity.
 [WORLD] [DEMO] DemoPlayer uses Orb of Ingenuity.
-[DEBUG b9_ZFUmDHxmyylXOAAAB] Soul 926b11f7-a096-4df2-8797-db1830f6d23d using 'Orb of Ingenuity' (df_initiate_orb_tool_creation) with args: {"soul_id": "926b11f7-a096-4df2-8797-db1830f6d23d", "location_id": "trial_chamber", "artifact_id": "
-[DEBUG DynamicExecutor] Attempting to execute function: df_initiate_orb_tool_creation with params: {"soul_id": "926b11f7-a096-4df2-8797-db1830f6d23d", "location_id": "trial_chamber", "artifact_id": "orb_01", "artifact_properties": {}}...
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] Soul d02fa7b8-d54e-4528-8f49-2bce0cf44dd6 using 'Orb of Ingenuity' (df_initiate_orb_tool_creation) with args: {"soul_id": "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6", "location_id": "trial_chamber", "artifact_id": "
+[DEBUG DynamicExecutor] Attempting to execute function: df_initiate_orb_tool_creation with params: {"soul_id": "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6", "location_id": "trial_chamber", "artifact_id": "orb_01", "artifact_properties": {}}...
 [DEBUG DynamicExecutor] Executing dynamically loaded function df_initiate_orb_tool_creation from string...
-[DEBUG b9_ZFUmDHxmyylXOAAAB] Dynamic func 'df_initiate_orb_tool_creation' result: EVENT:PROMPT_USER_FOR_TOOL_DESCRIPTION
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] Dynamic func 'df_initiate_orb_tool_creation' result: EVENT:PROMPT_USER_FOR_TOOL_DESCRIPTION
 [WORLD] [DEMO] Action result: EVENT:PROMPT_USER_FOR_TOOL_DESCRIPTION
-[DEBUG b9_ZFUmDHxmyylXOAAAB] [DEMO] Demo step 10: WAIT
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] Demo step 10: WAIT
 [WORLD] [DEMO] Demo step 10: WAIT
-[DEBUG b9_ZFUmDHxmyylXOAAAB] [DEMO] DemoPlayer describes tool: Create a temporary light bridge...
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] DemoPlayer describes tool: Create a temporary light bridge...
 [WORLD] [DEMO] DemoPlayer describes tool: Create a temporary light bridge...
-[DEBUG b9_ZFUmDHxmyylXOAAAB] Creating tool func 'df_user_926b_37eb' for: Create a temporary light bridge to the keyhole platform.
-[DEBUG DynamicExecutor] Attempting to execute function: create_dynamic_function with params: {"new_function_name": "df_user_926b_37eb", "new_function_description": "Player described: 'Create a temporary light bridge to the keyhole platform.'. This function implements that tool. Example for 'C...
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] Creating tool func 'df_user_d02f_54d5' for: Create a temporary light bridge to the keyhole platform.
+[DEBUG DynamicExecutor] Attempting to execute function: create_dynamic_function with params: {"new_function_name": "df_user_d02f_54d5", "new_function_description": "Player described: 'Create a temporary light bridge to the keyhole platform.'. This function implements that tool. Example for 'C...
 [DEBUG DynamicExecutor] Executing special internal function: create_dynamic_function
-[DEBUG DynamicExecutor] Attempting to create dynamic function: df_user_926b_37eb
-[DEBUG DynamicExecutor] Calling LLM (gemini-2.5-flash-preview-04-17) for function: df_user_926b_37eb (Attempt: 1)
-[DEBUG DynamicExecutor] Sanitized code for df_user_926b_37eb (Attempt 1):
-def df_user_926b_37eb(params):
+[DEBUG DynamicExecutor] Attempting to create dynamic function: df_user_d02f_54d5
+[DEBUG DynamicExecutor] Calling LLM (gemini-2.5-flash-preview-04-17) for function: df_user_d02f_54d5 (Attempt: 1)
+[DEBUG DynamicExecutor] Sanitized code for df_user_d02f_54d5 (Attempt 1):
+def df_user_d02f_54d5(params):
     # `params` is a dictionary passed by the host environment.
     # It contains arguments as defined in your function's parameters_schema.
     # It might also contain additional contextual data from the host,
-    # such as 'soul_id' and 'location_id' as described in the specification.
-    #
-    # NECESSARY IMPORTS: If you use modules like `uuid` for `uuid.uuid4()`,
-    # you MUST include `import uuid` at the START of this function body.
-    # Similarly for `json` (`import json`) if needed for complex JSON manipulation,
-    # though basic `json.loads()` on API results is often directly available.
+    # such as 'soul_id' and 'location_id' as specified.
 
     try:
-        # Get required parameters from the implicitly provided params
-        # The specification states soul_id and location_id are provided in params.
+        # Retrieve soul_id and location_id from params as specified
         soul_id = params['soul_id']
         location_id = params['location_id']
 
-        # Define arguments for the host_create_temporary_object API call
-        api_args = {
-            'type': 'light_bridge',
-            'duration': 15,
-            'from_landmark_id': 'player_current_pos', # As per specification example
-            'to_landmark_id': 'keyhole_platform_exit', # As per specification example
-            'location_id': location_id,
-            'soul_id': soul_id
-        }
-
-        # Check if the required host API is available in external_apis
+        # Check if the required host API is available
         if 'host_create_temporary_object' in external_apis:
-            # Call the host API with the defined arguments
-            # The API is documented to return JSON, and the spec says to return the string directly.
-            result_string = external_apis['host_create_temporary_object'](api_args)
+            # Prepare arguments for the host API call
+            api_args = {
+                'type': 'light_bridge',
+                'duration': 15,
+                'from_landmark_id': 'player_current_pos',
+                'to_landmark_id': 'keyhole_platform_exit',
+                'location_id': location_id,
+                'soul_id': soul_id
+            }
 
-            # Return the JSON string result directly as specified
-            return result_string
+            # Call the host API
+            # The specification says to return the JSON string result directly,
+            # so we do not parse it with json.loads()
+            host_result_string = external_apis['host_create_temporary_object'](api_args)
+
+            # Return the result string from the host API
+            return host_result_string
         else:
-            # Handle case where the required API is not available
-            return "Error: Required host API 'host_create_temporary_object' not found in external_apis."
+            # Handle the case where the required host API is not available
+            return "Error: Required host API 'host_create_temporary_object' not found."
 
     except KeyError as e:
         # Handle missing required parameters from `params`
-        # This catches errors if 'soul_id' or 'location_id' are not in params
-        return f"Error in df_user_926b_37eb: Missing expected key in params: {e}"
+        return f"Error in df_user_d02f_54d5: Missing expected key in params: {e}. Ensure 'soul_id' and 'location_id' are provided."
     except Exception as error:
         # Catch any other unexpected errors during execution
-        return f"Error executing df_user_926b_37eb: {error}"
-[DEBUG DynamicExecutor] Syntax validation passed for df_user_926b_37eb on attempt 1.
-[DEBUG DynamicExecutor] Upserting function 'df_user_926b_37eb' definition to Chroma DB...
-[DEBUG b9_ZFUmDHxmyylXOAAAB] Tool func 'df_user_926b_37eb' created. Now creating charged artifact using 'df_system_finalize_orb_charging'.
-[DEBUG DynamicExecutor] Attempting to execute function: df_system_finalize_orb_charging with params: {"soul_id": "926b11f7-a096-4df2-8797-db1830f6d23d", "catalyst_artifact_id": "orb_01", "newly_created_tool_function_name": "df_user_926b_37eb", "user_provided_description": "Create a temporary light br...
+        return f"Error executing df_user_d02f_54d5: {error}"
+[DEBUG DynamicExecutor] Syntax validation passed for df_user_d02f_54d5 on attempt 1.
+[DEBUG DynamicExecutor] Upserting function 'df_user_d02f_54d5' definition to Chroma DB...
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] Tool func 'df_user_d02f_54d5' created. Now creating charged artifact using 'df_system_finalize_orb_charging'.
+[DEBUG DynamicExecutor] Attempting to execute function: df_system_finalize_orb_charging with params: {"soul_id": "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6", "catalyst_artifact_id": "orb_01", "newly_created_tool_function_name": "df_user_d02f_54d5", "user_provided_description": "Create a temporary light br...
 [DEBUG DynamicExecutor] Executing dynamically loaded function df_system_finalize_orb_charging from string...
 [WORLD] DemoPlayer obtained Orb: Create a temporary light ....
-[DEBUG b9_ZFUmDHxmyylXOAAAB] Result of df_system_finalize_orb_charging: {"message": "The Orb of Ingenuity glows! You've learned to manifest 'Orb: Create a temporary light ...'!", "new_artifact_id": "charged_orb_29731108-61e0-441c-b1b9-71dd5474eaca"}
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] Result of df_system_finalize_orb_charging: {"message": "The Orb of Ingenuity glows! You've learned to manifest 'Orb: Create a temporary light ...'!", "new_artifact_id": "charged_orb_09c1f38c-b08b-4323-9b74-a8a45eeb0643"}
 [WORLD] DemoPlayer: The Orb of Ingenuity glows! You've learned to manifest 'Orb: Create a temporary light ...'!
 [WORLD] [DEMO] Tool description result: The Orb of Ingenuity glows! You've learned to manifest 'Orb: Create a temporary light ...'!
-[DEBUG b9_ZFUmDHxmyylXOAAAB] [DEMO] New artifact 'Orb: Create a temporary l...' should be created and given.
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] New artifact 'Orb: Create a temporary l...' should be created and given.
 [WORLD] [DEMO] New artifact 'Orb: Create a temporary l...' should be created and given.
-[DEBUG b9_ZFUmDHxmyylXOAAAB] [DEMO] DemoPlayer uses the newly created light bridge Orb.
-[WORLD] [DEMO] DemoPlayer uses the newly created light bridge Orb.
-[DEBUG b9_ZFUmDHxmyylXOAAAB] Soul 926b11f7-a096-4df2-8797-db1830f6d23d using 'Orb: Create a temporary light ...' (df_user_926b_37eb) with args: {"soul_id": "926b11f7-a096-4df2-8797-db1830f6d23d", "location_id": "trial_chamber", "artifact_id": "
-[DEBUG DynamicExecutor] Attempting to execute function: df_user_926b_37eb with params: {"soul_id": "926b11f7-a096-4df2-8797-db1830f6d23d", "location_id": "trial_chamber", "artifact_id": "charged_orb_29731108-61e0-441c-b1b9-71dd5474eaca", "artifact_properties": {"creator_soul_id": "926b1...
-[DEBUG DynamicExecutor] Executing dynamically loaded function df_user_926b_37eb from string...
-[WORLD] A light_bridge appeared from 'player_current_pos' to 'keyhole_platform_exit' in Trial Chamber. It will last 15s.
-[DEBUG b9_ZFUmDHxmyylXOAAAB] Dynamic func 'df_user_926b_37eb' result: {"message": "light_bridge created to 'keyhole_platform_exit'.", "object_id": "temp_light_bridge_e62b"}
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] Demo step 13: COMMENT
+[WORLD] [DEMO] Demo step 13: COMMENT
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] DemoPlayer moves to Vault Approach (simulated for script).
+[WORLD] [DEMO] DemoPlayer moves to Vault Approach (simulated for script).
+[WORLD] [DEMO] DemoPlayer moved from 'Trial Chamber' to 'Vault Approach'.
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] Demo step 15: WAIT
+[WORLD] [DEMO] Demo step 15: WAIT
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] DemoPlayer uses the newly created light bridge Orb (in Vault Approach).
+[WORLD] [DEMO] DemoPlayer uses the newly created light bridge Orb (in Vault Approach).
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] Soul d02fa7b8-d54e-4528-8f49-2bce0cf44dd6 using 'Orb: Create a temporary light ...' (df_user_d02f_54d5) with args: {"soul_id": "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6", "location_id": "vault_approach", "artifact_id": 
+[DEBUG DynamicExecutor] Attempting to execute function: df_user_d02f_54d5 with params: {"soul_id": "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6", "location_id": "vault_approach", "artifact_id": "charged_orb_09c1f38c-b08b-4323-9b74-a8a45eeb0643", "artifact_properties": {"creator_soul_id": "d02f...
+[DEBUG DynamicExecutor] Executing dynamically loaded function df_user_d02f_54d5 from string...
+[WORLD] A light_bridge appeared from 'player_current_pos' to 'keyhole_platform_exit' in Vault Approach. It will last 15s.
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] Dynamic func 'df_user_d02f_54d5' result: {"message": "light_bridge created to 'keyhole_platform_exit'.", "object_id": "temp_light_bridge_d366"}
 [WORLD] [DEMO] Action result: light_bridge created to 'keyhole_platform_exit'.
-[DEBUG b9_ZFUmDHxmyylXOAAAB] [DEMO] Light bridge to keyhole platform should be active.
-[WORLD] [DEMO] Light bridge to keyhole platform should be active.
-[DEBUG b9_ZFUmDHxmyylXOAAAB] [DEMO] DemoPlayer uses Vault Key at Vault Approach.
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] Light bridge in Vault Approach should be active towards 'keyhole_platform_exit'.
+[WORLD] [DEMO] Light bridge in Vault Approach should be active towards 'keyhole_platform_exit'.
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] Demo step 18: COMMENT
+[WORLD] [DEMO] Demo step 18: COMMENT
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] DemoPlayer uses Vault Key at Vault Approach.
 [WORLD] [DEMO] DemoPlayer uses Vault Key at Vault Approach.
-[DEBUG b9_ZFUmDHxmyylXOAAAB] Soul 926b11f7-a096-4df2-8797-db1830f6d23d using 'Vault Key' (df_use_vault_key) with args: {"soul_id": "926b11f7-a096-4df2-8797-db1830f6d23d", "location_id": "trial_chamber", "artifact_id": "
-[DEBUG DynamicExecutor] Attempting to execute function: df_use_vault_key with params: {"soul_id": "926b11f7-a096-4df2-8797-db1830f6d23d", "location_id": "trial_chamber", "artifact_id": "key_01", "artifact_properties": {}}...
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] Soul d02fa7b8-d54e-4528-8f49-2bce0cf44dd6 using 'Vault Key' (df_use_vault_key) with args: {"soul_id": "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6", "location_id": "vault_approach", "artifact_id": 
+[DEBUG DynamicExecutor] Attempting to execute function: df_use_vault_key with params: {"soul_id": "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6", "location_id": "vault_approach", "artifact_id": "key_01", "artifact_properties": {}}...
 [DEBUG DynamicExecutor] Executing dynamically loaded function df_use_vault_key from string...
-[DEBUG b9_ZFUmDHxmyylXOAAAB] Dynamic func 'df_use_vault_key' result: Can only use Vault Key at the Vault Approach.
-[WORLD] [DEMO] Action result: Can only use Vault Key at the Vault Approach.
-[DEBUG b9_ZFUmDHxmyylXOAAAB] [DEMO] Vault door should open. Demo complete!
-[WORLD] [DEMO] Vault door should open. Demo complete!
-[DEBUG b9_ZFUmDHxmyylXOAAAB] [DEMO] Script finished.
+[WORLD] Effect applied to env object 'vault_keyhole': {"is_unlocked": true}
+[WORLD] The Unreachable Vault door rumbles open!
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] Dynamic func 'df_use_vault_key' result: Vault key clicks. The door opens!
+[WORLD] [DEMO] Action result: Vault key clicks. The door opens!
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] Vault door should now open as the condition (light bridge in Vault Approach) is met.
+[WORLD] [DEMO] Vault door should now open as the condition (light bridge in Vault Approach) is met.
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] Demo step 21: COMMENT
+[WORLD] [DEMO] Demo step 21: COMMENT
+[DEBUG 0Oy7LxAtNf2UzhNRAAAB] [DEMO] Script finished.
 [WORLD] [DEMO] Demo sequence complete.
-
-
-
-
-World Log
-The Elemental Trial is complete! The sealed door in the Trial Chamber rumbles open.
-
-DemoPlayer obtained Orb of Ingenuity.
-
-[DEMO] Action result: All pedestals active! Trial complete!
-
-[DEMO] Elemental Trial should be complete. Orb of Ingenuity acquired.
-
-[DEMO] DemoPlayer uses Orb of Ingenuity.
-
-[DEMO] Action result: EVENT:PROMPT_USER_FOR_TOOL_DESCRIPTION
-
-[DEMO] Demo step 10: WAIT
-
-[DEMO] DemoPlayer describes tool: Create a temporary light bridge...
-
-DemoPlayer obtained Orb: Create a temporary light ....
-
-DemoPlayer: The Orb of Ingenuity glows! You've learned to manifest 'Orb: Create a temporary light ...'!
-
-[DEMO] Tool description result: The Orb of Ingenuity glows! You've learned to manifest 'Orb: Create a temporary light ...'!
-
-[DEMO] New artifact 'Orb: Create a temporary l...' should be created and given.
-
-[DEMO] DemoPlayer uses the newly created light bridge Orb.
-
-A light_bridge appeared from 'player_current_pos' to 'keyhole_platform_exit' in Trial Chamber. It will last 15s.
-
-[DEMO] Action result: light_bridge created to 'keyhole_platform_exit'.
-
-[DEMO] Light bridge to keyhole platform should be active.
-
-[DEMO] DemoPlayer uses Vault Key at Vault Approach.
-
-[DEMO] Action result: Can only use Vault Key at the Vault Approach.
-
-[DEMO] Vault door should open. Demo complete!
-
-[DEMO] Demo sequence complete.
-
-DemoPlayer (ID: 926b11f7)
-Location: Trial Chamber
-An ancient chamber with three pedestals: Flame, Water, and Wind. A sealed stone door blocks the exit. The once sealed stone door now stands open.
-Exits: None
-Landmarks: flame_pedestal_loc, water_pedestal_loc, wind_pedestal_loc, sealed_door_exit
-Temporary Notes: light_bridge to keyhole_platform_exit
-Inventory: Flaming Ember, Water Droplet, Gust of Wind, Vault Key, Orb of Ingenuity, Orb: Create a temporary light ...
-Inventory Actions
-Flaming Ember
-A constantly burning ember.
-Water Droplet
-A perfect, shimmering droplet.
-Gust of Wind
-Feels like a captured breeze.
-Vault Key
-A heavy key for the Unreachable Vault.
-Orb of Ingenuity
-A crystal orb humming with potential.
-Orb: Create a temporary light ...
-The Orb of Ingenuity, now resonating with power to: Create a temporary light bridge to the keyhole platform.
-[SERVER DEBUG] DemoPlayer connected (926b11f7-a096-4df2-8797-db1830f6d23d). SID b9_ZFUmDHxmyylXOAAAB.
-[SERVER DEBUG] First demo player. Initiating world genesis via initial_prompt.json.
-Player Soul ID: 926b11f7-a096-4df2-8797-db1830f6d23d
-Socket ID: b9_ZFUmDHxmyylXOAAAB
-[SERVER DEBUG] Processing initial prompt file: initial_prompt.json
-[SERVER DEBUG] Initial Prompt CMD 1: create_dynamic_function with args: {"new_function_name": "df_initiate_orb_tool_creation", "new_function_description": "This function is...
-Received gameStateUpdate
-Received 0 actions.
-[SERVER DEBUG] Initial CMD 'create_dynamic_function' Result: Successfully created/updated dynamic function: df_initiate_orb_tool_creation
-[SERVER DEBUG] Initial Prompt CMD 2: create_dynamic_function with args: {"new_function_name": "df_system_finalize_orb_charging", "new_function_description": "SYSTEM FUNCTIO...
-[SERVER DEBUG] Initial CMD 'create_dynamic_function' Result: Successfully created/updated dynamic function: df_system_finalize_orb_charging
-[SERVER DEBUG] Initial Prompt CMD 3: create_dynamic_function with args: {"new_function_name": "df_interact_with_pedestal", "new_function_description": "Player uses an eleme...
-[SERVER DEBUG] Initial CMD 'create_dynamic_function' Result: Successfully created/updated dynamic function: df_interact_with_pedestal
-[SERVER DEBUG] Initial Prompt CMD 4: create_dynamic_function with args: {"new_function_name": "df_use_vault_key", "new_function_description": "Player uses the Vault Key. Ne...
-[SERVER DEBUG] Initial CMD 'create_dynamic_function' Result: Successfully created/updated dynamic function: df_use_vault_key
-[SERVER DEBUG] Initial Prompt CMD 5: create_dynamic_function with args: {"new_function_name": "df_genesis_engine", "new_function_description": "This function creates the en...
-[SERVER DEBUG] Initial CMD 'create_dynamic_function' Result: Successfully created/updated dynamic function: df_genesis_engine
-[SERVER DEBUG] Initial Prompt CMD 6: df_genesis_engine with args: {}...
-Received gameStateUpdate
-Received gameStateUpdate
-Received gameStateUpdate
-Received gameStateUpdate
-Received gameStateUpdate
-Received gameStateUpdate
-Received gameStateUpdate
-[SERVER DEBUG] Initial CMD 'df_genesis_engine' Result: World Genesis complete via df_genesis_engine!
-[SERVER DEBUG] Finished processing initial prompt commands.
-[SERVER DEBUG] Genesis complete. Finalizing player setup.
-[SERVER DEBUG] Finalizing setup for 926b11f7-a096-4df2-8797-db1830f6d23d post-genesis.
-Received gameStateUpdate
-Received gameStateUpdate
-Received gameStateUpdate
-Received gameStateUpdate
-Received gameStateUpdate
-Received gameStateUpdate
-Received 4 actions.
-[SERVER DEBUG] Spawning demo script execution.
-[SERVER DEBUG] [DEMO] Starting script execution...
-Received gameStateUpdate
-[SERVER DEBUG] [DEMO] Demo step 1: COMMENT
-Received gameStateUpdate
-Received gameStateUpdate
-Received 4 actions.
-[SERVER DEBUG] [DEMO] Demo step 2: WAIT
-Received gameStateUpdate
-Received gameStateUpdate
-Received 4 actions.
-[SERVER DEBUG] [DEMO] DemoPlayer uses Flaming Ember on pedestal_fire.
-Received gameStateUpdate
-[SERVER DEBUG] Soul 926b11f7-a096-4df2-8797-db1830f6d23d using 'Flaming Ember' (df_interact_with_pedestal) with args: {"soul_id": "926b11f7-a096-4df2-8797-db1830f6d23d", "location_id": "trial_chamber", "artifact_id": "
-Received gameStateUpdate
-[SERVER DEBUG] Dynamic func 'df_interact_with_pedestal' result: fire placed on pedestal. It glows!
-Received gameStateUpdate
-Received gameStateUpdate
-Received 4 actions.
-[SERVER DEBUG] [DEMO] Demo step 4: WAIT
-Received gameStateUpdate
-Received gameStateUpdate
-Received 4 actions.
-[SERVER DEBUG] [DEMO] DemoPlayer uses Water Droplet on pedestal_water.
-Received gameStateUpdate
-[SERVER DEBUG] Soul 926b11f7-a096-4df2-8797-db1830f6d23d using 'Water Droplet' (df_interact_with_pedestal) with args: {"soul_id": "926b11f7-a096-4df2-8797-db1830f6d23d", "location_id": "trial_chamber", "artifact_id": "
-Received gameStateUpdate
-[SERVER DEBUG] Dynamic func 'df_interact_with_pedestal' result: water placed on pedestal. It glows!
-Received gameStateUpdate
-Received gameStateUpdate
-Received 4 actions.
-[SERVER DEBUG] [DEMO] Demo step 6: WAIT
-Received gameStateUpdate
-Received gameStateUpdate
-Received 4 actions.
-[SERVER DEBUG] [DEMO] DemoPlayer uses Gust of Wind on pedestal_wind.
-Received gameStateUpdate
-[SERVER DEBUG] Soul 926b11f7-a096-4df2-8797-db1830f6d23d using 'Gust of Wind' (df_interact_with_pedestal) with args: {"soul_id": "926b11f7-a096-4df2-8797-db1830f6d23d", "location_id": "trial_chamber", "artifact_id": "
-Received gameStateUpdate
-Received gameStateUpdate
-Received gameStateUpdate
-[SERVER DEBUG] Dynamic func 'df_interact_with_pedestal' result: All pedestals active! Trial complete!
-Received gameStateUpdate
-Received gameStateUpdate
-Received 5 actions.
-[SERVER DEBUG] [DEMO] Elemental Trial should be complete. Orb of Ingenuity acquired.
-Received gameStateUpdate
-Received gameStateUpdate
-Received 5 actions.
-[SERVER DEBUG] [DEMO] DemoPlayer uses Orb of Ingenuity.
-Received gameStateUpdate
-[SERVER DEBUG] Soul 926b11f7-a096-4df2-8797-db1830f6d23d using 'Orb of Ingenuity' (df_initiate_orb_tool_creation) with args: {"soul_id": "926b11f7-a096-4df2-8797-db1830f6d23d", "location_id": "trial_chamber", "artifact_id": "
-[SERVER DEBUG] Dynamic func 'df_initiate_orb_tool_creation' result: EVENT:PROMPT_USER_FOR_TOOL_DESCRIPTION
-Received gameStateUpdate
-Received gameStateUpdate
-Received 5 actions.
-[SERVER DEBUG] [DEMO] Demo step 10: WAIT
-Received gameStateUpdate
-Received gameStateUpdate
-Received 5 actions.
-[SERVER DEBUG] [DEMO] DemoPlayer describes tool: Create a temporary light bridge...
-Received gameStateUpdate
-[SERVER DEBUG] Creating tool func 'df_user_926b_37eb' for: Create a temporary light bridge to the keyhole platform.
-[SERVER DEBUG] Tool func 'df_user_926b_37eb' created. Now creating charged artifact using 'df_system_finalize_orb_charging'.
-Received gameStateUpdate
-[SERVER DEBUG] Result of df_system_finalize_orb_charging: {"message": "The Orb of Ingenuity glows! You've learned to manifest 'Orb: Create a temporary light ...'!", "new_artifact_id": "charged_orb_29731108-61e0-441c-b1b9-71dd5474eaca"}
-Received gameStateUpdate
-Received gameStateUpdate
-Received gameStateUpdate
-Received 6 actions.
-[SERVER DEBUG] [DEMO] New artifact 'Orb: Create a temporary l...' should be created and given.
-Received gameStateUpdate
-Received gameStateUpdate
-Received 6 actions.
-[SERVER DEBUG] [DEMO] DemoPlayer uses the newly created light bridge Orb.
-Received gameStateUpdate
-[SERVER DEBUG] Soul 926b11f7-a096-4df2-8797-db1830f6d23d using 'Orb: Create a temporary light ...' (df_user_926b_37eb) with args: {"soul_id": "926b11f7-a096-4df2-8797-db1830f6d23d", "location_id": "trial_chamber", "artifact_id": "
-Received gameStateUpdate
-[SERVER DEBUG] Dynamic func 'df_user_926b_37eb' result: {"message": "light_bridge created to 'keyhole_platform_exit'.", "object_id": "temp_light_bridge_e62b"}
-Received gameStateUpdate
-Received gameStateUpdate
-Received 6 actions.
-[SERVER DEBUG] [DEMO] Light bridge to keyhole platform should be active.
-Received gameStateUpdate
-Received gameStateUpdate
-Received 6 actions.
-[SERVER DEBUG] [DEMO] DemoPlayer uses Vault Key at Vault Approach.
-Received gameStateUpdate
-[SERVER DEBUG] Soul 926b11f7-a096-4df2-8797-db1830f6d23d using 'Vault Key' (df_use_vault_key) with args: {"soul_id": "926b11f7-a096-4df2-8797-db1830f6d23d", "location_id": "trial_chamber", "artifact_id": "
-[SERVER DEBUG] Dynamic func 'df_use_vault_key' result: Can only use Vault Key at the Vault Approach.
-Received gameStateUpdate
-Received gameStateUpdate
-Received 6 actions.
-[SERVER DEBUG] [DEMO] Vault door should open. Demo complete!
-Received gameStateUpdate
-Received gameStateUpdate
-Received 6 actions.
-[SERVER DEBUG] [DEMO] Script finished.
-Received gameStateUpdate
+^C[SERVER] SIGINT received, saving game state before exit...
+[SERVER] Saving game state...
+[SERVER] Game state saved.
+[WORLD] DemoPlayer disconnected.
+[DEBUG GLOBAL] DemoPlayer disconnected. Stopping demo.
