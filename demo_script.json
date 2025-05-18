@@ -1,11 +1,29 @@
 [
   {
     "action": "COMMENT",
-    "text": "Player starts in Trial Chamber with elemental artifacts and Vault Key."
+    "text": "Demo Scenario: Player completes Elemental Trial, gets Orb, creates tool, solves vault puzzle."
   },
   {
     "action": "WAIT",
     "duration_ms": 1500
+  },
+  {
+    "action": "COMMENT",
+    "text": "Player is in the Trial Chamber. Initial artifacts: Flaming Ember, Water Droplet, Gust of Wind, Vault Key."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 1000
+  },
+  {
+    "action": "DEMO_FOCUS_ON_LANDMARK",
+    "landmark_key": "flame_pedestal_loc",
+    "log_message": "[DEMO] DemoPlayer approaches the Flame Pedestal."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 2000,
+    "log_message": "[DEMO] (Arrived at Flame Pedestal)"
   },
   {
     "action": "USE_ARTIFACT",
@@ -13,11 +31,21 @@
     "args": {
       "target_env_object_id": "pedestal_fire"
     },
-    "log_message": "DemoPlayer uses Flaming Ember on pedestal_fire."
+    "log_message": "DemoPlayer, at the Flame Pedestal, places the Flaming Ember."
   },
   {
     "action": "WAIT",
     "duration_ms": 2000
+  },
+  {
+    "action": "DEMO_FOCUS_ON_LANDMARK",
+    "landmark_key": "water_pedestal_loc",
+    "log_message": "[DEMO] DemoPlayer moves to the Water Pedestal."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 2000,
+    "log_message": "[DEMO] (Arrived at Water Pedestal)"
   },
   {
     "action": "USE_ARTIFACT",
@@ -25,11 +53,21 @@
     "args": {
       "target_env_object_id": "pedestal_water"
     },
-    "log_message": "DemoPlayer uses Water Droplet on pedestal_water."
+    "log_message": "DemoPlayer, at the Water Pedestal, places the Water Droplet."
   },
   {
     "action": "WAIT",
     "duration_ms": 2000
+  },
+  {
+    "action": "DEMO_FOCUS_ON_LANDMARK",
+    "landmark_key": "wind_pedestal_loc",
+    "log_message": "[DEMO] DemoPlayer heads to the Wind Pedestal."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 2000,
+    "log_message": "[DEMO] (Arrived at Wind Pedestal)"
   },
   {
     "action": "USE_ARTIFACT",
@@ -37,41 +75,71 @@
     "args": {
       "target_env_object_id": "pedestal_wind"
     },
-    "log_message": "DemoPlayer uses Gust of Wind on pedestal_wind."
+    "log_message": "DemoPlayer, at the Wind Pedestal, places the Gust of Wind."
   },
   {
     "action": "WAIT",
-    "duration_ms": 3000,
-    "log_message": "Elemental Trial should be complete. Orb of Ingenuity acquired. Sealed door should look open."
+    "duration_ms": 4500,
+    "log_message": "All pedestals active! Elemental Trial complete. Orb of Ingenuity acquired. Sealed door to Vault Approach opens."
   },
   {
-    "action": "USE_ARTIFACT",
-    "artifact_name": "Orb of Ingenuity",
-    "args": {},
-    "log_message": "DemoPlayer uses Orb of Ingenuity."
+    "action": "DEMO_FOCUS_ON_LANDMARK",
+    "landmark_key": null,
+    "log_message": "[DEMO] DemoPlayer takes a moment to examine the acquired Orb."
   },
   {
     "action": "WAIT",
     "duration_ms": 1000
   },
   {
-    "action": "DESCRIBE_TOOL",
-    "description": "Create a temporary light bridge to the keyhole platform.",
-    "log_message": "DemoPlayer describes tool: Create a temporary light bridge..."
+    "action": "USE_ARTIFACT",
+    "artifact_name": "Orb of Ingenuity",
+    "args": {},
+    "log_message": "DemoPlayer uses the Orb of Ingenuity."
   },
   {
     "action": "WAIT",
-    "duration_ms": 4000,
-    "log_message": "New artifact 'Orb: Create a temporary l...' should be created and given."
+    "duration_ms": 2000
   },
   {
-    "action": "COMMENT",
-    "text": "Player has the light bridge orb. Now moving to Vault Approach BEFORE using it."
+    "action": "DESCRIBE_TOOL",
+    "description": "Create a temporary light bridge to the keyhole platform. This bridge should last for 30 seconds. When the bridge is successfully created, this function must also call the host API 'host_set_puzzle_properties' to update the 'vault_access_puzzle' by setting its 'light_bridge_active' property to true. If bridge creation fails, do not update the puzzle state.",
+    "log_message": "DemoPlayer describes the tool: 'Create a temporary light bridge and update vault puzzle state.'"
   },
   {
-    "action": "MOVE_PLAYER_TO",
-    "target_location_id": "vault_approach",
-    "log_message": "DemoPlayer moves to Vault Approach (simulated for script)."
+    "action": "WAIT",
+    "duration_ms": 7000,
+    "log_message": "Orb of Ingenuity glows! New tool 'Orb: Create a temporary light ...' manifested."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 2000,
+    "log_message": "[DEMO] The Orb has been charged. Now to leave the Trial Chamber."
+  },
+  {
+    "action": "DEMO_FOCUS_ON_LANDMARK",
+    "landmark_key": "sealed_door_exit_landmark",
+    "log_message": "[DEMO] DemoPlayer approaches the now open Sealed Stone Door."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 2500,
+    "log_message": "[DEMO] (Arrived at Sealed Stone Door)"
+  },
+  {
+    "action": "DEMO_USE_EXIT",
+    "exit_landmark_key": "sealed_door_exit_landmark",
+    "log_message": "[DEMO] DemoPlayer uses the Sealed Stone Door to go to the Vault Approach."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 2500,
+    "log_message": "[DEMO] DemoPlayer has arrived in the Vault Approach, observing the chasm."
+  },
+  {
+    "action": "DEMO_FOCUS_ON_LANDMARK",
+    "landmark_key": null,
+    "log_message": "[DEMO] DemoPlayer prepares to use the light bridge tool while at the chasm edge."
   },
   {
     "action": "WAIT",
@@ -80,19 +148,23 @@
   {
     "action": "USE_ARTIFACT",
     "artifact_name_starts_with": "Orb: Create a temporary l",
-    "args": {
-      "target_landmark_id_for_bridge": "keyhole_platform_landmark"
-    },
-    "log_message": "DemoPlayer uses the newly created light bridge Orb (in Vault Approach)."
+    "args": {},
+    "log_message": "DemoPlayer uses the 'Orb: Create a temporary light ...' at the Vault Approach chasm."
   },
   {
     "action": "WAIT",
-    "duration_ms": 3000,
-    "log_message": "Light bridge in Vault Approach should be active towards 'keyhole_platform_landmark'."
+    "duration_ms": 4500,
+    "log_message": "Light bridge forms to the keyhole platform! 'vault_access_puzzle' state updated."
   },
   {
-    "action": "COMMENT",
-    "text": "Player is at Vault Approach with an active light bridge to the keyhole platform."
+    "action": "DEMO_FOCUS_ON_LANDMARK",
+    "landmark_key": "keyhole_platform_landmark",
+    "log_message": "[DEMO] DemoPlayer crosses the light bridge to the Keyhole Platform."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 2500,
+    "log_message": "[DEMO] (Arrived at Keyhole Platform)"
   },
   {
     "action": "USE_ARTIFACT",
@@ -100,12 +172,12 @@
     "args": {
         "target_env_object_id": "vault_keyhole"
     },
-    "log_message": "DemoPlayer uses Vault Key at Vault Approach on the keyhole."
+    "log_message": "DemoPlayer, on the Keyhole Platform, uses the Vault Key."
   },
   {
     "action": "WAIT",
-    "duration_ms": 3000,
-    "log_message": "Vault door should now open as the condition (light bridge in Vault Approach and key used) is met."
+    "duration_ms": 4500,
+    "log_message": "Vault Key turns! The Vault Door opens!"
   },
   {
     "action": "COMMENT",

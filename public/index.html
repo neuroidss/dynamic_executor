@@ -222,13 +222,15 @@
             scene.add(playerAvatar);
             previousPlayerPosition.copy(playerAvatar.position);
 
-            const defaultGroundMaterial = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, receiveShadow: true });
+            const defaultGroundMaterial = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide });
             groundMeshes['default_plane'] = new THREE.Mesh(new THREE.PlaneGeometry(1,1), defaultGroundMaterial.clone());
+            groundMeshes['default_plane'].receiveShadow = true;
             groundMeshes['default_plane'].rotation.x = -Math.PI / 2;
             groundMeshes['default_plane'].name = "mainGroundPlane";
             scene.add(groundMeshes['default_plane']);
 
             groundMeshes['default_box_platform'] = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), defaultGroundMaterial.clone());
+            groundMeshes['default_box_platform'].receiveShadow = true;
             groundMeshes['default_box_platform'].name = "boxPlatform";
             scene.add(groundMeshes['default_box_platform']);
             
@@ -484,6 +486,7 @@
             } else if (config.ground_type_key === 'split_chasm_platforms') {
                 const playerPlatformMesh = groundMeshes['default_box_platform']; // Re-use or create specific if needed
                 const keyholePlatformMesh = groundMeshes['default_box_platform'].clone(); // Clone for the second platform
+                keyholePlatformMesh.receiveShadow = true;
                 scene.add(keyholePlatformMesh); // Ensure cloned mesh is added
                 groundMeshes['keyhole_platform_temp'] = keyholePlatformMesh; // Track it for later removal if loc changes
 
