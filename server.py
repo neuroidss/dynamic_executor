@@ -31,7 +31,9 @@ game_state = {
     'puzzle_states': {},
     'temporary_objects': {}, # Stores active temporary objects like light bridges
     'world_log': ["Welcome to the Orb of Ingenuity Demo!"],
-    'server_metadata': {'next_player_number': 1, 'initial_prompt_processing_started': False, 'initial_prompt_processing_complete': False}
+    'server_metadata': {'next_player_number': 1, 'initial_prompt_processing_started': False, 'initial_prompt_processing_complete': False},
+    'world_properties': {}, # For LLM-defined global settings
+    'world_event_handlers': {}, # For LLM-defined event handlers
 }
 connected_souls_by_sid = {} # sid: soul_id
 
@@ -67,10 +69,15 @@ class GamePrimitiveHandler:
         loc_id = params.get('id')
         name = params.get('name', loc_id)
         description = params.get('description', "An undescribed place.")
-        landmarks = params.get('landmarks', {})
+        # Landmarks are now primarily for semantic linking, visual data comes separately
         if not loc_id: return "Error API (host_core_add_location_to_gamestate): 'id' is required."
         if loc_id in gs['locations']: return f"Error API (host_core_add_location_to_gamestate): Location ID '{loc_id}' already exists."
-        gs['locations'][loc_id] = {'id': loc_id, 'name': name, 'description': description, 'exits': {}, 'landmarks': landmarks}
+        gs['locations'][loc_id] = {
+            'id': loc_id, 'name': name, 'description': description, 
+            'exits': {}, # Exits are logical links between location_ids via landmark_keys
+            'landmarks': {}, # Stores landmark_key: {name, client_visual_config, semantic_links}
+            'client_visual_config': {} # Stores visual data for the location itself
+        }
         return f"Host API: Location '{name}' ({loc_id}) created."
 
     def host_core_add_artifact_to_gamestate(self, params):
@@ -78,7 +85,7 @@ class GamePrimitiveHandler:
         art_id = params.get('id', str(uuid.uuid4()))
         name = params.get('name', "Mysterious Artifact")
         description = params.get('description', "An artifact of unknown purpose.")
-        properties = params.get('properties', {})
+        properties = params.get('properties', {}) # May include 'client_interaction_rules'
         linked_func_name = params.get('linked_dynamic_function_name')
 
         if art_id in gs['artifacts']: return f"Error API (host_core_add_artifact_to_gamestate): Artifact ID '{art_id}' already exists."
@@ -93,8 +100,8 @@ class GamePrimitiveHandler:
         gs = self._get_gs()
         obj_id = params.get('id')
         loc_id = params.get('location_id')
-        obj_type = params.get('type', 'generic_object')
-        details = params.get('details', {})
+        obj_type = params.get('type', 'generic_object') # e.g. 'elemental_pedestal', 'keyhole'
+        details = params.get('details', {}) # May include 'client_visual_update' for dynamic changes
         if not obj_id or not loc_id: return "Error API (host_core_add_env_object_to_gamestate): 'id' and 'location_id' are required."
         if loc_id not in gs['locations']: return f"Error API (host_core_add_env_object_to_gamestate): Location '{loc_id}' not found."
         gs['environment_objects'][obj_id] = {'id': obj_id, 'location_id': loc_id, 'type': obj_type, 'details': details}
@@ -103,7 +110,7 @@ class GamePrimitiveHandler:
     def host_core_initialize_puzzle_state(self, params):
         gs = self._get_gs()
         puzzle_id = params.get('id')
-        initial_state = params.get('initial_state', {})
+        initial_state = params.get('initial_state', {}) # May include 'checking_dynamic_function_name'
         if not puzzle_id: return "Error API (host_core_initialize_puzzle_state): 'id' is required."
         gs['puzzle_states'][puzzle_id] = {'id': puzzle_id, **initial_state}
         return f"Host API: Puzzle '{puzzle_id}' initialized."
@@ -127,71 +134,85 @@ class GamePrimitiveHandler:
             return json.dumps({"message": f"Artifact {gs['artifacts'][artifact_id]['name']} given to {gs['souls'][soul_id]['name']}."})
         return json.dumps({"message": f"Artifact {gs['artifacts'][artifact_id]['name']} already in inventory of {gs['souls'][soul_id]['name']}."})
 
-    def api_apply_effect_on_environment_object(self, params):
+    def host_apply_effect_on_environment_object(self, params):
         gs = self._get_gs()
         obj_id = params.get('object_id'); effect_to_apply = params.get('effect_details')
         if not obj_id or obj_id not in gs['environment_objects']: return json.dumps({"error": "Invalid object_id."})
         if not effect_to_apply or not isinstance(effect_to_apply, dict): return json.dumps({"error": "Invalid effect_details."})
+        
         env_obj = gs['environment_objects'][obj_id]
-        for key, value in effect_to_apply.items(): env_obj['details'][key] = value
+        # Apply all keys from effect_details into env_obj['details']
+        # This will include logical state changes and 'client_visual_update' if provided
+        for key, value in effect_to_apply.items():
+            env_obj['details'][key] = value
+            
         log_to_world(f"Effect applied to env object '{obj_id}': {json.dumps(effect_to_apply)}")
         broadcast_game_state_to_all_relevant()
         return json.dumps({"message": f"Effect applied to '{obj_id}'."})
 
-    def api_check_puzzle_condition(self, params):
+    def host_check_puzzle_condition(self, params):
         gs = self._get_gs()
         puzzle_id = params.get('puzzle_id')
-        if puzzle_id == "elemental_trial":
-            active_count = 0
-            for obj_id, obj_data in gs['environment_objects'].items():
-                if obj_data['location_id'] == 'trial_chamber' and obj_data['type'] == 'elemental_pedestal' and obj_data['details'].get('is_active'):
-                    active_count +=1
-            required_active = gs['puzzle_states'].get(puzzle_id, {}).get('target_pedestals', 3)
-            if active_count >= required_active:
-                gs['puzzle_states'][puzzle_id]['is_complete'] = True
-                return json.dumps({'condition_met': True, 'message': 'All elemental pedestals are active!'})
-            else:
-                return json.dumps({'condition_met': False, 'message': f'{active_count}/{required_active} pedestals active.'})
-        elif puzzle_id == "vault_access_puzzle":
-            bridge_exists = any(
-                obj_data['type'] == 'light_bridge' and obj_data['location_id'] == 'vault_approach' and
-                obj_data['to'] == 'keyhole_platform_exit' and time.time() <= obj_data['creation_time'] + obj_data['duration']
-                for obj_id, obj_data in gs['temporary_objects'].items()
-            )
-            if bridge_exists:
-                return json.dumps({'condition_met': True, 'message': 'A way to the keyhole is clear!'})
-            else:
-                if gs['environment_objects'].get('vault_keyhole',{}).get('details',{}).get('is_unlocked'):
-                     return json.dumps({'condition_met': True, 'message': 'The keyhole is already unlocked.'})
-                return json.dumps({'condition_met': False, 'message': 'The chasm blocks the way to the keyhole.'})
-        return json.dumps({'condition_met': False, 'message': f'Unknown puzzle or condition for {puzzle_id}.'})
+        if not puzzle_id or puzzle_id not in gs['puzzle_states']:
+            return json.dumps({'condition_met': False, 'message': f'Puzzle {puzzle_id} not found.'})
 
-    def api_trigger_world_event(self, params):
-        gs = self._get_gs()
-        event_id = params.get('event_id'); acting_soul_id = params.get('soul_id')
-        if event_id == "elemental_trial_success":
-            log_to_world("The Elemental Trial is complete! The sealed door in the Trial Chamber rumbles open.")
-            if 'trial_chamber' in gs['locations'] and 'sealed_door_exit' in gs['locations']['trial_chamber'].get('landmarks',{}):
-                 gs['locations']['trial_chamber']['description'] += " The once sealed stone door now stands open."
-            if 'elemental_trial' in gs['puzzle_states']: gs['puzzle_states']['elemental_trial']['is_complete'] = True
-            if acting_soul_id and 'orb_01' in gs['artifacts']:
-                self.host_give_artifact_to_soul({'soul_id': acting_soul_id, 'artifact_id': 'orb_01'})
-            broadcast_game_state_to_all_relevant()
-            return json.dumps({"message": "Elemental Trial complete! A hidden door opens. You feel a new sense of understanding (Orb of Ingenuity gained)."})
-        if event_id == "open_vault_door":
-            log_to_world("The Unreachable Vault door rumbles open!")
-            if 'unreachable_vault' in gs['puzzle_states']: gs['puzzle_states']['unreachable_vault']['is_open'] = True
-            if 'vault_approach' in gs['locations'] and 'vault_door_main' in gs['locations']['vault_approach'].get('landmarks',{}):
-                 gs['locations']['vault_approach']['description'] += " The massive vault door now stands open."
-            broadcast_game_state_to_all_relevant()
-            return json.dumps({"message": "Vault door opened!"})
-        return json.dumps({"message": f"World event '{event_id}' triggered."})
+        puzzle_data = gs['puzzle_states'][puzzle_id]
+        checking_func_name = puzzle_data.get('checking_dynamic_function_name')
 
-    def api_create_temporary_object(self, params):
+        if not checking_func_name:
+            return json.dumps({'condition_met': False, 'message': f'No checking function registered for puzzle {puzzle_id}.'})
+
+        # Params for the checking function might just be the puzzle_id, or more context if needed.
+        # The dynamic function itself will use other host APIs to get game state.
+        execution_params = {'puzzle_id': puzzle_id, 'current_puzzle_state': puzzle_data} 
+        result_str = dynamic_executor.execute_dynamic_function(checking_func_name, execution_params, get_external_apis_for_execution())
+        
+        try:
+            result_json = json.loads(result_str)
+            return json.dumps(result_json) # Expects {'condition_met': bool, 'message': str}
+        except json.JSONDecodeError:
+            return json.dumps({'condition_met': False, 'message': f'Error: Puzzle checker {checking_func_name} for {puzzle_id} returned invalid JSON: {result_str}'})
+        except Exception as e:
+            return json.dumps({'condition_met': False, 'message': f'Error executing puzzle checker {checking_func_name} for {puzzle_id}: {e}'})
+
+    def host_trigger_world_event(self, params):
         gs = self._get_gs()
-        obj_type = params.get('type'); duration = params.get('duration', 10)
-        from_landmark_id = params.get('from_landmark_id', 'player_current_pos'); to_landmark_id = params.get('to_landmark_id')
+        event_id = params.get('event_id')
+        acting_soul_id = params.get('soul_id') # Optional, for context
+        event_params = params.get('event_params', {}) # Custom params for the event handler function
+
+        if not event_id or event_id not in gs.get('world_event_handlers', {}):
+            log_to_world(f"Warning: World event '{event_id}' triggered but no handler registered.")
+            return json.dumps({"message": f"World event '{event_id}' triggered, no specific handler action taken."})
+
+        handler_func_name = gs['world_event_handlers'][event_id]
+        
+        # Prepare parameters for the dynamic event handler function
+        execution_params = {
+            'event_id': event_id,
+            'soul_id': acting_soul_id, # Pass along the soul_id if available
+            **event_params # Merge any custom event params
+        }
+        
+        log_to_world(f"World event '{event_id}' processing via '{handler_func_name}'.")
+        result_str = dynamic_executor.execute_dynamic_function(handler_func_name, execution_params, get_external_apis_for_execution())
+        
+        # The result_str from the handler can be a message or structured JSON.
+        # For simplicity, we'll just log it and return it.
+        # The handler function itself should call log_to_world for specific messages.
+        broadcast_game_state_to_all_relevant() # Ensure state is updated after handler runs
+        return json.dumps({"message": f"Event '{event_id}' processed. Handler result: {result_str}"})
+
+
+    def host_create_temporary_object(self, params):
+        gs = self._get_gs()
+        obj_type = params.get('type')
+        duration = params.get('duration', 10)
+        from_landmark_id = params.get('from_landmark_id', 'player_current_pos')
+        to_landmark_id = params.get('to_landmark_id')
         location_id = params.get('location_id')
+        client_visual_config = params.get('client_visual_config', {}) # New: for LLM to define appearance
+
         if not all([obj_type, to_landmark_id, location_id]):
             return json.dumps({"error": "Missing type, to_landmark_id, or location_id for temporary object."})
         if location_id not in gs['locations']: return json.dumps({"error": f"Location '{location_id}' not found for temporary object."})
@@ -199,35 +220,117 @@ class GamePrimitiveHandler:
         temp_obj_id = f"temp_{obj_type}_{str(uuid.uuid4())[:4]}"
         gs['temporary_objects'][temp_obj_id] = {
             'id': temp_obj_id, 'type': obj_type, 'location_id': location_id,
-            'from': from_landmark_id, 'to': to_landmark_id,
+            'from_landmark_id': from_landmark_id, 'to_landmark_id': to_landmark_id,
             'creation_time': time.time(), 'duration': int(duration),
-            'creator_soul_id': params.get('soul_id')
+            'creator_soul_id': params.get('soul_id'),
+            'client_visual_config': client_visual_config # Store visual config
         }
         log_to_world(f"A {obj_type} appeared from '{from_landmark_id}' to '{to_landmark_id}' in {gs['locations'][location_id]['name']}. It will last {duration}s.")
         broadcast_game_state_to_all_relevant()
         return json.dumps({"message": f"{obj_type} created to '{to_landmark_id}'.", "object_id": temp_obj_id})
 
-    def api_get_entity_data(self, params):
+    def host_get_entity_data(self, params):
         gs = self._get_gs()
         entity_id = params.get('entity_id')
         if not entity_id or entity_id not in gs['souls']: return json.dumps({"error": "Invalid entity_id."})
         soul_data = gs['souls'][entity_id]
         return json.dumps({"id": soul_data["id"], "name": soul_data["name"], "location_id": soul_data["location_id"]})
 
-    def api_get_location_data(self, params):
+    def host_get_location_data(self, params):
         gs = self._get_gs()
         loc_id = params.get('location_id')
         if not loc_id or loc_id not in gs['locations']: return json.dumps({"error": "Invalid location_id."})
         loc_data = gs['locations'][loc_id]
-        return json.dumps({"id": loc_data["id"], "name": loc_data["name"], "description": loc_data["description"], "exits": loc_data.get("exits",{}), "landmarks": loc_data.get("landmarks", {})})
+        # Return a subset, client will get full visual config via game state update
+        return json.dumps({"id": loc_data["id"], "name": loc_data["name"], "description": loc_data["description"], "exits": loc_data.get("exits",{})})
 
-    def api_get_environment_object_data(self, params):
+    def host_get_environment_object_data(self, params):
         gs = self._get_gs()
         obj_id = params.get('object_id')
         if not obj_id or obj_id not in gs['environment_objects']:
             return json.dumps({"error": f"Environment object '{obj_id}' not found."})
         env_obj = gs['environment_objects'][obj_id]
         return json.dumps({'id': env_obj['id'], 'type': env_obj['type'], 'location_id': env_obj['location_id'], 'details': env_obj['details']})
+
+    def host_set_world_property(self, params):
+        gs = self._get_gs()
+        property_name = params.get('property_name')
+        property_value = params.get('property_value')
+        if not property_name: return json.dumps({"error": "property_name is required."})
+        gs['world_properties'][property_name] = property_value
+        return json.dumps({"message": f"World property '{property_name}' set."})
+
+    def host_register_puzzle_check_function(self, params):
+        gs = self._get_gs()
+        puzzle_id = params.get('puzzle_id')
+        checking_dynamic_function_name = params.get('checking_dynamic_function_name')
+        if not puzzle_id or not checking_dynamic_function_name:
+            return json.dumps({"error": "puzzle_id and checking_dynamic_function_name are required."})
+        if puzzle_id not in gs['puzzle_states']:
+             gs['puzzle_states'][puzzle_id] = {'id': puzzle_id} # Ensure puzzle exists
+        gs['puzzle_states'][puzzle_id]['checking_dynamic_function_name'] = checking_dynamic_function_name
+        return json.dumps({"message": f"Puzzle checker '{checking_dynamic_function_name}' registered for puzzle '{puzzle_id}'."})
+
+    def host_register_event_handler_function(self, params):
+        gs = self._get_gs()
+        event_id = params.get('event_id')
+        handler_dynamic_function_name = params.get('handler_dynamic_function_name')
+        if not event_id or not handler_dynamic_function_name:
+            return json.dumps({"error": "event_id and handler_dynamic_function_name are required."})
+        if 'world_event_handlers' not in gs: gs['world_event_handlers'] = {}
+        gs['world_event_handlers'][event_id] = handler_dynamic_function_name
+        return json.dumps({"message": f"Event handler '{handler_dynamic_function_name}' registered for event '{event_id}'."})
+
+    def host_set_location_visual_config(self, params):
+        gs = self._get_gs()
+        location_id = params.get('location_id')
+        config = params.get('config') # Includes center_position_xyz, ground_type_key, ground_config (with type-specific params like size_xz, color_hex, platform_sizes etc.)
+        if not location_id or not config: return json.dumps({"error": "location_id and config are required."})
+        if location_id not in gs['locations']: return json.dumps({"error": f"Location '{location_id}' not found."})
+        gs['locations'][location_id]['client_visual_config'] = config
+        return json.dumps({"message": f"Visual config set for location '{location_id}'."})
+
+    def host_set_landmark_visual_config(self, params):
+        gs = self._get_gs()
+        location_id = params.get('location_id')
+        landmark_key = params.get('landmark_key') # This is the key used in location.landmarks, e.g., "flame_pedestal_loc"
+        config = params.get('config') # Includes display_name, relative_position_xyz, 
+                                      # geometry_config {type, parameters/dimensions/radius}, material_config {base_color_hex},
+                                      # targetable_as_env_object_id, is_exit_to_location_id, landmark_interaction_type_key
+
+        if not location_id or not landmark_key or not config:
+            return json.dumps({"error": "location_id, landmark_key, and config are required."})
+        if location_id not in gs['locations']: return json.dumps({"error": f"Location '{location_id}' not found."})
+        
+        if 'landmarks' not in gs['locations'][location_id]: gs['locations'][location_id]['landmarks'] = {}
+        
+        gs['locations'][location_id]['landmarks'][landmark_key] = {
+            'key': landmark_key, 
+            'name': config.get('display_name', landmark_key), 
+            'client_visual_config': config 
+        }
+        if config.get('is_exit_to_location_id'):
+            if 'exits' not in gs['locations'][location_id]: gs['locations'][location_id]['exits'] = {}
+            gs['locations'][location_id]['exits'][landmark_key] = config['is_exit_to_location_id']
+            
+        return json.dumps({"message": f"Visual and semantic config set for landmark '{landmark_key}' in location '{location_id}'."})
+        
+    def host_set_puzzle_properties(self, params):
+        gs = self._get_gs()
+        puzzle_id = params.get('puzzle_id')
+        properties_to_set = params.get('properties', {})
+        if not puzzle_id or not properties_to_set:
+            return json.dumps({"error": "puzzle_id and properties are required."})
+        if puzzle_id not in gs['puzzle_states']:
+            return json.dumps({"error": f"Puzzle '{puzzle_id}' not found."})
+        for key, value in properties_to_set.items():
+            gs['puzzle_states'][puzzle_id][key] = value
+        # If properties include a client_visual_update for a landmark linked to this puzzle,
+        # the client will pick it up via the landmark's data or a linked env_object.
+        # Or the dynamic function handling puzzle completion can directly call host_set_landmark_visual_config or host_apply_effect_on_environment_object.
+        broadcast_game_state_to_all_relevant() # Puzzle state change might affect visuals
+        return json.dumps({"message": f"Properties updated for puzzle '{puzzle_id}'."})
+
 
 def get_current_game_state(): return game_state
 
@@ -242,7 +345,7 @@ def register_host_api_for_llm(api_name, description_for_llm, parameters_schema_f
 
 def generate_api_description_for_llm_prompt():
     if not game_api_registry: return "No host APIs are currently available."
-    descriptions = ["Host APIs available in `external_apis` dictionary:", "Note: If an API is documented to return a JSON string, you MUST use `json.loads(result_string)` to parse it into a Python dictionary or list before accessing its elements."]
+    descriptions = ["Host APIs available in `external_apis` dictionary:", "Note: If an API is documented to return a JSON string, you MUST use `json.loads(result_string)` to parse it into a Python dictionary or list before accessing its elements. The `json` module is available implicitly or via `import json`."]
     for name, info in game_api_registry.items():
         param_desc_parts = []
         if info['parameters_schema_for_llm'] and info['parameters_schema_for_llm'].get('properties'):
@@ -295,14 +398,15 @@ def process_initial_prompt_commands():
             if command_name == 'create_dynamic_function':
                 args['host_provided_api_description_for_new_func'] = generate_api_description_for_llm_prompt()
                 result = dynamic_executor.execute_dynamic_function(command_name, args, get_external_apis_for_execution())
-                if "df_genesis_engine" in result: genesis_engine_was_run = True # Mark if the function itself was created
-            elif command_name == 'df_genesis_engine':
-                genesis_engine_was_run = True # Mark that it's being called
+                # if "df_genesis_engine" in result: genesis_engine_was_run = True # Though genesis itself is a direct call now
+            elif command_name == 'df_genesis_engine': # This is the main world setup call
+                genesis_engine_was_run = True
                 log_to_world("Server: Executing df_genesis_engine to build the world...", broadcast=True)
                 result = dynamic_executor.execute_dynamic_function(command_name, args, get_external_apis_for_execution())
                 log_to_world(f"Server: df_genesis_engine execution finished. Result: {result}", broadcast=True)
-            else:
+            else: # Other direct dynamic function calls from initial_prompt
                 result = dynamic_executor.execute_dynamic_function(command_name, args, get_external_apis_for_execution())
+
 
             send_debug_info(None, f"Initial CMD '{command_name}' Result: {result}")
             if isinstance(result, str) and "Error:" in result:
@@ -315,22 +419,22 @@ def process_initial_prompt_commands():
 
         if genesis_engine_was_run:
             send_debug_info(None, "Genesis engine was run. Checking for players in LIMBO_VOID...")
-            initial_start_location = 'trial_chamber'
-            if initial_start_location in game_state['locations']:
+            initial_start_location = game_state.get('world_properties',{}).get('initial_start_location_id', list(game_state['locations'].keys())[0] if game_state['locations'] else None)
+            if initial_start_location and initial_start_location in game_state['locations']:
                 limbo_players_updated_sids = []
                 for soul_id, soul_data in list(game_state['souls'].items()):
                     if soul_data.get('location_id') == "LIMBO_VOID" or soul_data.get('location_id') is None:
                         game_state['souls'][soul_id]['location_id'] = initial_start_location
-                        log_to_world(f"{soul_data['name']} has been brought from the Void into '{game_state['locations'][initial_start_location]['name']}'.", broadcast=False) # Broadcast will happen below
+                        log_to_world(f"{soul_data['name']} has been brought from the Void into '{game_state['locations'][initial_start_location]['name']}'.", broadcast=False)
                         finalize_player_setup_after_genesis(soul_id, soul_data.get('socket_id'), from_limbo=True)
                         if soul_data.get('socket_id'):
                             limbo_players_updated_sids.append(soul_data.get('socket_id'))
-                
-                if limbo_players_updated_sids: # If any players were moved from limbo
-                    broadcast_game_state_to_all_relevant() # This will update everyone, including those moved
+
+                if limbo_players_updated_sids:
+                    broadcast_game_state_to_all_relevant()
             else:
-                log_to_world(f"Warning: Initial start location '{initial_start_location}' not found after genesis. Players in LIMBO_VOID remain.", broadcast=True)
-        
+                log_to_world(f"Warning: Initial start location '{initial_start_location}' (from world_properties or fallback) not found after genesis. Players in LIMBO_VOID remain.", broadcast=True)
+
         if demo_context["is_active"] and demo_context["player_soul_id"] and demo_context["current_step"] == 0 and not demo_context["script_execution_started"]:
             if demo_context["script_data"] and game_state['souls'][demo_context["player_soul_id"]]['location_id'] != "LIMBO_VOID":
                 send_debug_info(demo_context["player_sid"], "Genesis complete. Spawning demo script execution now.")
@@ -341,39 +445,44 @@ def process_initial_prompt_commands():
         print(error_msg)
         log_to_world(f"Server CRITICAL ERROR during initial setup: {e}", broadcast=True)
         send_debug_info(None, error_msg)
-        gs_meta['initial_prompt_processing_started'] = False # Allow retry if critical error
+        gs_meta['initial_prompt_processing_started'] = False
         gs_meta['initial_prompt_processing_complete'] = False
 
 def get_filtered_game_state_for_soul(soul_id):
     soul = game_state['souls'].get(soul_id)
     if not soul: return {'error': "Soul not found"}
-    
+
     current_loc_id = soul.get('location_id')
-    current_loc_data = None
+    current_loc_data_for_client = None
 
     if current_loc_id == "LIMBO_VOID" or current_loc_id is None or current_loc_id not in game_state['locations']:
-        current_loc_data = {
+        void_visual_config = game_state.get('world_properties', {}).get('void_visual_config', {'center_position_xyz': [0,-50,-100], 'ground_type_key': 'none', 'ground_config': {'color_hex': '#100510'}})
+        current_loc_data_for_client = {
             'id': current_loc_id if current_loc_id else "LIMBO_VOID",
-            'name': "The Void",
-            'description': "Drifting in an unformed expanse, awaiting world genesis...",
+            'name': game_state.get('world_properties', {}).get('ui_special_location_names',{}).get('limbo_void', "The Void"),
+            'description': game_state.get('world_properties', {}).get('ui_messages',{}).get('limbo_void_description', "Drifting in an unformed expanse..."),
             'exits': {},
-            'landmarks': {},
-            'temporary_notes': "None"
+            'landmarks': {}, 
+            'client_visual_config': void_visual_config,
+            'temporary_notes': "None" 
         }
         environment_objects_in_location = []
         active_temp_objects_for_client = []
     else:
-        current_loc = game_state['locations'][current_loc_id]
-        current_loc_data = {
-            'id': current_loc_id, 
-            'name': current_loc['name'],
-            'description': current_loc['description'],
-            'exits': current_loc.get('exits',{}),
-            'landmarks': current_loc.get('landmarks', {}),
+        raw_loc_data = game_state['locations'][current_loc_id]
+        current_loc_data_for_client = {
+            'id': raw_loc_data['id'],
+            'name': raw_loc_data['name'],
+            'description': raw_loc_data['description'],
+            'exits': raw_loc_data.get('exits', {}),
+            'landmarks': raw_loc_data.get('landmarks', {}), 
+            'client_visual_config': raw_loc_data.get('client_visual_config', {}) 
         }
+        
         active_temp_objects_for_client = []
-        environment_objects_in_location = []
+        environment_objects_in_location = [] 
         stale_temp_ids = []
+
         for obj_id, obj_data in game_state['temporary_objects'].items():
             if obj_data['location_id'] == current_loc_id:
                 if time.time() > obj_data['creation_time'] + obj_data['duration']:
@@ -381,37 +490,43 @@ def get_filtered_game_state_for_soul(soul_id):
                 else:
                     active_temp_objects_for_client.append({
                         'id': obj_data['id'], 'type': obj_data['type'],
-                        'from': obj_data['from'], 'to': obj_data['to'],
+                        'from_landmark_id': obj_data['from_landmark_id'], 
+                        'to_landmark_id': obj_data['to_landmark_id'],
                         'location_id': obj_data['location_id'],
                         'duration': obj_data['duration'] - (time.time() - obj_data['creation_time']),
-                        'original_duration': obj_data['duration']
+                        'original_duration': obj_data['duration'],
+                        'client_visual_config': obj_data.get('client_visual_config', {}) 
                     })
-        
+
         if stale_temp_ids:
             needs_broadcast = False
             for temp_id in stale_temp_ids:
                 removed_obj = game_state['temporary_objects'].pop(temp_id, None)
                 if removed_obj:
-                    log_to_world(f"{removed_obj['type']} from {removed_obj['from']} to {removed_obj['to']} vanished.", broadcast=False)
+                    log_to_world(f"{removed_obj['type']} from {removed_obj.get('from_landmark_id','?')} to {removed_obj.get('to_landmark_id','?')} vanished.", broadcast=False)
                     needs_broadcast = True
-            if needs_broadcast: broadcast_game_state_to_all_relevant()
-        
+            if needs_broadcast: broadcast_game_state_to_all_relevant() 
+
         for obj_id, obj_data in game_state['environment_objects'].items():
             if obj_data.get('location_id') == current_loc_id:
-                environment_objects_in_location.append(obj_data)
-        current_loc_data['temporary_notes'] = ", ".join([f"{obj['type']} to {obj['to']}" for obj in active_temp_objects_for_client]) if active_temp_objects_for_client else "None"
+                environment_objects_in_location.append(obj_data) 
+        
+        current_loc_data_for_client['temporary_notes'] = ", ".join([f"{obj['type']} to {obj['to_landmark_id']}" for obj in active_temp_objects_for_client]) if active_temp_objects_for_client else "None"
+
 
     return {
         'playerSoul': {'id': soul['id'], 'name': soul['name'], 'locationId': current_loc_id},
-        'currentLocation': current_loc_data,
+        'currentLocation': current_loc_data_for_client,
         'inventory': [{'id': aid, 'name': game_state['artifacts'][aid]['name'],
                        'description': game_state['artifacts'][aid]['description'],
-                       'toolName': game_state['artifacts'][aid].get('linked_dynamic_function_name')
+                       'toolName': game_state['artifacts'][aid].get('linked_dynamic_function_name'),
+                       'properties': game_state['artifacts'][aid].get('properties', {}) 
                       } for aid in soul.get('inventory', []) if aid in game_state['artifacts']],
-        'worldLog': game_state['world_log'][-20:],
+        'worldLog': game_state['world_log'][-game_state.get('world_properties', {}).get('client_default_settings', {}).get('ui', {}).get('log_max_entries', 20):],
         'activeTemporaryObjects': active_temp_objects_for_client,
         'environmentObjectsInLocation': environment_objects_in_location,
-        'allPuzzleStates': game_state['puzzle_states']
+        'allPuzzleStates': game_state['puzzle_states'], 
+        'worldProperties': game_state.get('world_properties', {}) 
     }
 
 def send_game_state_update(sid, soul_id):
@@ -421,10 +536,6 @@ def send_game_state_update(sid, soul_id):
 def broadcast_game_state_to_all_relevant():
     for sid, soul_id in list(connected_souls_by_sid.items()):
         if soul_id in game_state['souls']: send_game_state_update(sid, soul_id)
-
-def send_available_actions(sid, soul_id):
-    state = get_filtered_game_state_for_soul(soul_id)
-    if 'inventory' in state: socketio.emit('availableActions', state['inventory'], room=sid)
 
 @app.route('/')
 def index(): return send_from_directory(app.static_folder, 'index.html')
@@ -439,12 +550,12 @@ def handle_connect():
     next_player_num = gs_meta.get('next_player_number', 1)
     player_name = f"Player_{next_player_num}"
     gs_meta['next_player_number'] = next_player_num + 1
-    
+
     initial_location_id = "LIMBO_VOID" 
 
     game_state['souls'][player_soul_id] = {
-        'id': player_soul_id, 'name': player_name, 
-        'location_id': initial_location_id, 
+        'id': player_soul_id, 'name': player_name,
+        'location_id': initial_location_id,
         'inventory': [], 'type': 'player', 'socket_id': sid
     }
     connected_souls_by_sid[sid] = player_soul_id
@@ -453,7 +564,7 @@ def handle_connect():
 
     if demo_context["is_active"] and not demo_context["player_soul_id"]:
         game_state['souls'][player_soul_id]['name'] = "DemoPlayer"
-        player_name = "DemoPlayer" 
+        player_name = "DemoPlayer"
         demo_context["player_soul_id"] = player_soul_id
         demo_context["player_sid"] = sid
         send_debug_info(sid, f"DemoPlayer connected ({player_soul_id}). SID {sid}.")
@@ -465,11 +576,11 @@ def handle_connect():
     elif gs_meta['initial_prompt_processing_complete']:
         send_debug_info(sid, "World genesis already complete. Finalizing player setup.")
         finalize_player_setup_after_genesis(player_soul_id, sid)
-    else: 
+    else:
         log_to_world(f"{player_name} waits as the world forms...", broadcast=True)
         send_debug_info(sid, "World genesis in progress. Player will be fully set up upon completion.")
 
-    send_game_state_update(sid, player_soul_id)
+    send_game_state_update(sid, player_soul_id) 
 
 def finalize_player_setup_after_genesis(p_soul_id, p_sid, from_limbo=False):
     send_debug_info(p_sid, f"Finalizing setup for {p_soul_id} post-genesis (from_limbo={from_limbo}).")
@@ -477,28 +588,31 @@ def finalize_player_setup_after_genesis(p_soul_id, p_sid, from_limbo=False):
     soul = gs['souls'].get(p_soul_id)
     if not soul: return
 
-    start_location = 'trial_chamber'
     if soul['location_id'] == "LIMBO_VOID" or soul['location_id'] is None:
-        if start_location in gs['locations']:
+        start_location = gs.get('world_properties', {}).get('initial_start_location_id')
+        if start_location and start_location in gs['locations']:
             soul['location_id'] = start_location
-            log_to_world(f"{soul['name']} materializes in '{gs['locations'][start_location]['name']}'.", broadcast=False) 
+            log_to_world(f"{soul['name']} materializes in '{gs['locations'][start_location]['name']}'.", broadcast=False)
         else:
             default_loc_key = list(gs['locations'].keys())[0] if gs['locations'] else None
-            soul['location_id'] = default_loc_key
-            log_to_world(f"Warning: Start location '{start_location}' not found. {soul['name']} placed in '{gs['locations'][default_loc_key]['name'] if default_loc_key else 'The Void'}'.", broadcast=False)
+            if default_loc_key:
+                soul['location_id'] = default_loc_key
+                log_to_world(f"Warning: Initial start location not properly defined. {soul['name']} placed in '{gs['locations'][default_loc_key]['name']}'.", broadcast=False)
+            else: 
+                log_to_world(f"Warning: No locations available. {soul['name']} remains in The Void.", broadcast=False)
 
-    artifacts_to_give = ["ember_01", "water_01", "wind_01", "key_01"]
-    if game_primitives_handler:
-        for art_id_key in artifacts_to_give:
+
+    artifacts_to_give_ids = gs.get('world_properties', {}).get('initial_player_artifacts', [])
+    if game_primitives_handler and artifacts_to_give_ids:
+        for art_id_key in artifacts_to_give_ids:
             if art_id_key in gs['artifacts'] and art_id_key not in soul.get('inventory', []):
                  give_params = {'soul_id': p_soul_id, 'artifact_id': art_id_key}
                  game_primitives_handler.host_give_artifact_to_soul(give_params) 
             elif art_id_key not in gs['artifacts']:
-                log_to_world(f"Warning: Artifact {art_id_key} not found post-genesis for {p_soul_id}", broadcast=False)
+                log_to_world(f"Warning: Initial artifact '{art_id_key}' (from world_properties) not found for {p_soul_id}", broadcast=False)
     
     if p_sid: 
         send_game_state_update(p_sid, p_soul_id)
-        send_available_actions(p_sid, p_soul_id)
 
     if demo_context["is_active"] and p_soul_id == demo_context["player_soul_id"] and \
        demo_context["current_step"] == 0 and demo_context["script_data"] and \
@@ -506,12 +620,13 @@ def finalize_player_setup_after_genesis(p_soul_id, p_sid, from_limbo=False):
         send_debug_info(p_sid, "Spawning demo script execution as player is now finalized.")
         eventlet.spawn_n(execute_demo_script_async)
 
+
 @socketio.on('disconnect')
 def handle_disconnect():
     sid = request.sid; soul_id = connected_souls_by_sid.pop(sid, None)
     if soul_id and soul_id in game_state['souls']:
         log_to_world(f"{game_state['souls'][soul_id]['name']} disconnected.")
-        game_state['souls'][soul_id]['socket_id'] = None
+        game_state['souls'][soul_id]['socket_id'] = None 
         if demo_context["is_active"] and demo_context["player_soul_id"] == soul_id:
             send_debug_info(None, "DemoPlayer disconnected. Stopping demo.")
             demo_context["is_active"] = False
@@ -542,13 +657,46 @@ def handle_perform_action(data):
 
     socketio.emit('actionResult', response, room=sid)
     broadcast_game_state_to_all_relevant()
-    send_available_actions(sid, player_soul_id)
+
+@socketio.on('playerMove')
+def handle_player_move(data):
+    sid = request.sid
+    player_soul_id = connected_souls_by_sid.get(sid)
+    if not player_soul_id or player_soul_id not in game_state['souls']:
+        socketio.emit('actionResult', {'success': False, 'message': "Soul not recognized for movement."}, room=sid)
+        return
+
+    soul = game_state['souls'][player_soul_id]
+    current_loc_id = soul.get('location_id')
+    exit_landmark_key = data.get('exit_key') 
+
+    if not current_loc_id or current_loc_id not in game_state['locations'] or \
+       not exit_landmark_key or exit_landmark_key not in game_state['locations'][current_loc_id].get('exits', {}):
+        socketio.emit('actionResult', {'success': False, 'message': "Invalid move or exit not found."}, room=sid)
+        send_debug_info(sid, f"Failed move: current_loc_id={current_loc_id}, exit_landmark_key={exit_landmark_key}, available_exits={game_state['locations'].get(current_loc_id,{}).get('exits', {})}")
+        return
+
+    target_loc_id = game_state['locations'][current_loc_id]['exits'][exit_landmark_key]
+
+    if target_loc_id not in game_state['locations']:
+        socketio.emit('actionResult', {'success': False, 'message': f"Target location '{target_loc_id}' for exit '{exit_landmark_key}' does not exist."}, room=sid)
+        return
+
+    target_loc_name = game_state['locations'][target_loc_id].get('name', 'an unknown area')
+    current_loc_name = game_state['locations'][current_loc_id].get('name', 'somewhere')
+
+    soul['location_id'] = target_loc_id
+    log_to_world(f"{soul['name']} moved from {current_loc_name} to {target_loc_name}.")
+
+    socketio.emit('actionResult', {'success': True, 'message': f"Moved to {target_loc_name}."}, room=sid)
+    broadcast_game_state_to_all_relevant()
+
 
 def _internal_perform_action_logic(player_soul_id, artifact_id_or_name, action_args, artifact_name_starts_with=False):
     soul = game_state['souls'][player_soul_id]
     if soul['location_id'] == "LIMBO_VOID" or soul['location_id'] is None:
         return "Cannot perform actions while in The Void.", False, None, {}
-        
+
     artifact = None; actual_artifact_id = None; event_type = None; event_data = {}
 
     if artifact_name_starts_with:
@@ -567,6 +715,7 @@ def _internal_perform_action_logic(player_soul_id, artifact_id_or_name, action_a
                     artifact = art_data; actual_artifact_id = inv_art_id; break
             if not artifact: return f"Artifact ID/name '{artifact_id_or_name}' not found.", False, None, {}
 
+
     if actual_artifact_id not in soul.get('inventory', []): return "Artifact not possessed.", False, None, {}
     dynamic_function_name = artifact.get('linked_dynamic_function_name')
     if not dynamic_function_name: return "Artifact is inert.", False, None, {}
@@ -574,20 +723,27 @@ def _internal_perform_action_logic(player_soul_id, artifact_id_or_name, action_a
     params_for_function = {
         'soul_id': player_soul_id, 'location_id': soul['location_id'],
         'artifact_id': actual_artifact_id, 'artifact_properties': artifact.get('properties', {}),
-        **action_args
+        **action_args 
     }
     send_debug_info(soul.get('socket_id'), f"Soul {player_soul_id} using '{artifact['name']}' ({dynamic_function_name}) with args: {json.dumps(params_for_function)[:100]}")
     execution_result = dynamic_executor.execute_dynamic_function(dynamic_function_name, params_for_function, get_external_apis_for_execution())
     send_debug_info(soul.get('socket_id'), f"Dynamic func '{dynamic_function_name}' result: {execution_result}")
 
     success = not (isinstance(execution_result, str) and execution_result.startswith("Error:"))
-    
+
     if execution_result == "EVENT:PROMPT_USER_FOR_TOOL_DESCRIPTION":
         if demo_context["is_active"] and demo_context["player_soul_id"] == player_soul_id:
             demo_context["orb_catalyst_artifact_id_pending_creation"] = actual_artifact_id
+        
+        ui_messages = game_state.get('world_properties', {}).get('ui_messages', {})
+        display_msg = ui_messages.get('orb_tool_prompt_initiate', "The Orb of Ingenuity awaits your command...")
+        
         event_type = "PROMPT_USER_FOR_TOOL_DESCRIPTION"
-        event_data = {'prompt_for_tool_artifact_id': actual_artifact_id}
-        return execution_result, True, event_type, event_data
+        event_data = {
+            'prompt_for_tool_artifact_id': actual_artifact_id,
+            'display_message': display_msg
+            }
+        return execution_result, True, event_type, event_data # Message for log can be execution_result or display_msg
     else:
         try:
             parsed_result = json.loads(execution_result)
@@ -596,6 +752,7 @@ def _internal_perform_action_logic(player_soul_id, artifact_id_or_name, action_a
             return user_message, success, None, {}
         except (json.JSONDecodeError, TypeError):
             return execution_result, success, None, {}
+
 
 @socketio.on('submitToolDescription')
 def handle_submit_tool_description(data):
@@ -612,10 +769,9 @@ def handle_submit_tool_description(data):
 
     description = data.get('description'); catalyst_artifact_id = data.get('catalyst_artifact_id')
     message, success = _internal_submit_tool_description_logic(player_soul_id, description, catalyst_artifact_id)
-    
+
     socketio.emit('actionResult', {'success': success, 'message': message}, room=sid)
     broadcast_game_state_to_all_relevant()
-    send_available_actions(sid, player_soul_id)
 
 def _internal_submit_tool_description_logic(player_soul_id, description, catalyst_artifact_id):
     soul = game_state['souls'][player_soul_id]
@@ -624,16 +780,18 @@ def _internal_submit_tool_description_logic(player_soul_id, description, catalys
     if not catalyst_artifact: return f"Catalyst artifact {catalyst_artifact_id} not found.", False
 
     new_tool_func_name = f"df_user_{player_soul_id[:4]}_{str(uuid.uuid4())[:4]}"
-    tool_func_desc_for_llm = (
-        f"Player described: '{description}'. This function implements that tool. "
-        f"Example for 'Create a temporary light bridge to the keyhole platform': "
-        "1. Needs 'soul_id' and 'location_id' from params (implicitly provided by host). "
-        "2. Call external_apis['host_create_temporary_object'] with args: "
-        "{'type': 'light_bridge', 'duration': 15, 'from_landmark_id': 'player_current_pos', "
-        "'to_landmark_id': 'keyhole_platform_exit', 'location_id': params['location_id'], 'soul_id': params['soul_id']}. "
-        "3. Return the JSON string result from 'host_create_temporary_object' directly."
+    
+    tool_creation_template = game_state.get('world_properties', {}).get(
+        'tool_creation_prompt_template', 
+        "Player described: '{description}'. This function implements that tool. Use available host APIs: {api_list}." 
     )
-    tool_func_params_schema = {"type": "object", "properties": {}}
+    
+    tool_func_desc_for_llm = tool_creation_template.format(
+        description=description,
+        api_list=generate_api_description_for_llm_prompt() 
+    )
+    
+    tool_func_params_schema = {"type": "object", "properties": {}} 
 
     tool_func_creation_args = {
         'new_function_name': new_tool_func_name,
@@ -649,7 +807,7 @@ def _internal_submit_tool_description_logic(player_soul_id, description, catalys
         return f"Orb fizzles (tool func): {tool_func_creation_result}", False
     else:
         send_debug_info(soul.get('socket_id'), f"Tool func '{new_tool_func_name}' created. Now creating charged artifact using 'df_system_finalize_orb_charging'.")
-        
+
         finalize_params = {
             'soul_id': player_soul_id,
             'catalyst_artifact_id': catalyst_artifact_id,
@@ -657,13 +815,13 @@ def _internal_submit_tool_description_logic(player_soul_id, description, catalys
             'user_provided_description': description
         }
         finalization_result_str = dynamic_executor.execute_dynamic_function("df_system_finalize_orb_charging", finalize_params, get_external_apis_for_execution())
-        
+
         send_debug_info(soul.get('socket_id'), f"Result of df_system_finalize_orb_charging: {finalization_result_str}")
 
         if isinstance(finalization_result_str, str) and finalization_result_str.startswith("Error:"):
              log_to_world(f"{soul['name']}'s Orb artifact finalization failed: {finalization_result_str}", broadcast=True)
              return f"Orb created tool func, but artifact finalization failed: {finalization_result_str}", False
-        
+
         try:
             parsed_final_result = json.loads(finalization_result_str)
             if "error" in parsed_final_result:
@@ -682,15 +840,19 @@ def _internal_submit_tool_description_logic(player_soul_id, description, catalys
             log_to_world(f"{soul['name']}'s Orb artifact finalization returned invalid JSON: {finalization_result_str}", broadcast=True)
             return "Orb finalization failed to return valid status.", False
 
+
 @socketio.on('requestState')
 def handle_request_state():
     sid = request.sid; player_soul_id = connected_souls_by_sid.get(sid)
     if player_soul_id and player_soul_id in game_state['souls']:
-        send_game_state_update(sid, player_soul_id); send_available_actions(sid, player_soul_id)
+        send_game_state_update(sid, player_soul_id)
 
 def save_game_state():
     print("[SERVER] Saving game state...")
     try:
+        for key_to_ensure in ['world_properties', 'world_event_handlers']:
+            if key_to_ensure not in game_state:
+                game_state[key_to_ensure] = {}
         with open(SAVE_FILE, 'w') as f: json.dump(game_state, f, indent=2)
         print("[SERVER] Game state saved.")
     except Exception as e: print(f"[SERVER] Error saving game state: {e}\n{traceback.format_exc()}")
@@ -701,20 +863,31 @@ def load_game_state():
         print("[SERVER] Loading game state from save...")
         try:
             with open(SAVE_FILE, 'r') as f: loaded_data = json.load(f)
-            for key in ['souls', 'locations', 'artifacts', 'environment_objects', 'puzzle_states', 'temporary_objects', 'world_log', 'server_metadata']:
-                if key not in loaded_data: loaded_data[key] = {} if key not in ['world_log', 'server_metadata'] else ([] if key == 'world_log' else {'next_player_number': 1, 'initial_prompt_processing_started': False, 'initial_prompt_processing_complete': False})
+            for key in ['souls', 'locations', 'artifacts', 'environment_objects', 'puzzle_states', 'temporary_objects', 'world_log', 'server_metadata', 'world_properties', 'world_event_handlers']:
+                if key not in loaded_data: 
+                    default_val = {}
+                    if key == 'world_log': default_val = []
+                    elif key == 'server_metadata': default_val = {'next_player_number': 1, 'initial_prompt_processing_started': False, 'initial_prompt_processing_complete': False}
+                    loaded_data[key] = default_val
+            
             if 'initial_prompt_processing_started' not in loaded_data['server_metadata']: loaded_data['server_metadata']['initial_prompt_processing_started'] = False
             if 'initial_prompt_processing_complete' not in loaded_data['server_metadata']: loaded_data['server_metadata']['initial_prompt_processing_complete'] = False
+            if 'next_player_number' not in loaded_data['server_metadata']: loaded_data['server_metadata']['next_player_number'] = 1
+
 
             game_state.update(loaded_data)
-            if 'next_player_number' not in game_state['server_metadata']: game_state['server_metadata']['next_player_number'] = 1
             print("[SERVER] Game state loaded.")
         except Exception as e:
             print(f"[SERVER] Error loading game state: {e}. Starting with default.")
             game_state['server_metadata'] = {'next_player_number': 1, 'initial_prompt_processing_started': False, 'initial_prompt_processing_complete': False}
+            game_state['world_properties'] = {}
+            game_state['world_event_handlers'] = {}
     else:
         print("[SERVER] No save file found. Starting with default empty state.")
         game_state['server_metadata'] = {'next_player_number': 1, 'initial_prompt_processing_started': False, 'initial_prompt_processing_complete': False}
+        game_state['world_properties'] = {}
+        game_state['world_event_handlers'] = {}
+
 
 def signal_handler_save_on_exit(sig, frame):
     print('[SERVER] SIGINT received, saving game state before exit...')
@@ -722,6 +895,9 @@ def signal_handler_save_on_exit(sig, frame):
 
 def trigger_llm_repair_process(function_name, error, traceback_str, params_for_function, host_api_description_for_repair_context):
     send_debug_info(None, f"LLM REPAIR TRIGGERED: For function '{function_name}' due to error: {error}")
+    # This is where you might try to call create_dynamic_function again with repair flags if it's a generation issue.
+    # Or log this for manual review / more sophisticated automated repair.
+    # For now, it just logs. The dynamic_executor itself handles retries for syntax errors during initial creation.
 
 def load_demo_script(filepath):
     try:
@@ -757,7 +933,7 @@ def execute_demo_script_async():
             if not demo_context["player_soul_id"] or demo_context["player_soul_id"] not in game_state["souls"]:
                 send_debug_info(None, "[DEMO] DemoPlayer not found. Stopping script.")
                 demo_context["is_active"] = False; break
-            
+
             if game_state["souls"][demo_context["player_soul_id"]]['location_id'] == "LIMBO_VOID":
                 send_debug_info(demo_context["player_sid"], "[DEMO] Waiting for player to exit LIMBO_VOID before continuing script...")
                 eventlet.sleep(1); continue
@@ -775,47 +951,63 @@ def execute_demo_script_async():
             elif action == "USE_ARTIFACT":
                 name_to_use = step.get("artifact_name", step.get("artifact_name_starts_with"))
                 is_prefix = bool(step.get("artifact_name_starts_with"))
-                res_msg, success, event_type, event_data = _internal_perform_action_logic(demo_context["player_soul_id"], name_to_use, step.get("args", {}), artifact_name_starts_with=is_prefix)
+                action_args = step.get("args", {}) 
+
+                target_env_object_id = action_args.get("target_env_object_id") # Corrected from target_pedestal_id if it was there
+                if target_env_object_id:
+                    env_object_details = game_state.get('environment_objects',{}).get(target_env_object_id)
+                    target_name_for_log = target_env_object_id
+                    if env_object_details:
+                        loc_id = game_state['souls'][demo_context["player_soul_id"]]['location_id']
+                        if loc_id in game_state['locations']:
+                            for lm_key, lm_data in game_state['locations'][loc_id].get('landmarks', {}).items():
+                                if lm_data.get('client_visual_config',{}).get('targetable_as_env_object_id') == target_env_object_id:
+                                    target_name_for_log = lm_data.get('name', target_env_object_id)
+                                    break
+                        log_to_world(f"[DEMO] DemoPlayer focusing on {target_name_for_log} to use {name_to_use}.", broadcast=False)
+
+
+                res_msg, success, event_type, event_data = _internal_perform_action_logic(demo_context["player_soul_id"], name_to_use, action_args, artifact_name_starts_with=is_prefix)
                 log_to_world(f"[DEMO] Action result: {res_msg}", broadcast=True)
                 if event_type == "PROMPT_USER_FOR_TOOL_DESCRIPTION":
                      demo_context["orb_catalyst_artifact_id_pending_creation"] = event_data['prompt_for_tool_artifact_id']
-                elif not success: 
+                elif not success:
                     send_debug_info(demo_context["player_sid"], f"[DEMO] Error in USE_ARTIFACT: {res_msg}. Stopping demo.")
-                    demo_context["is_active"] = False; break 
+                    demo_context["is_active"] = False; break
             elif action == "DESCRIBE_TOOL":
                 catalyst_id = demo_context.get("orb_catalyst_artifact_id_pending_creation")
                 if not catalyst_id: 
                     player_inv = game_state['souls'][demo_context["player_soul_id"]]['inventory']
+                    orb_artifact_id_from_wp = game_state.get('world_properties',{}).get('orb_of_ingenuity_artifact_id', 'orb_01')
                     for art_id in player_inv:
-                        if game_state['artifacts'][art_id]['name'] == "Orb of Ingenuity" or game_state['artifacts'][art_id]['id'] == "orb_01":
+                        if game_state['artifacts'][art_id]['id'] == orb_artifact_id_from_wp:
                             catalyst_id = art_id; break
                 if not catalyst_id:
                     send_debug_info(demo_context["player_sid"], "[DEMO] Error: DESCRIBE_TOOL no catalyst pending or Orb of Ingenuity found. Stopping demo.")
                     demo_context["is_active"] = False; break
-                
+
                 res_msg, success = _internal_submit_tool_description_logic(demo_context["player_soul_id"], step.get("description"), catalyst_id)
                 log_to_world(f"[DEMO] Tool description result: {res_msg}", broadcast=True)
-                if not success: 
+                if not success:
                     send_debug_info(demo_context["player_sid"], f"[DEMO] Error in DESCRIBE_TOOL: {res_msg}. Stopping demo.")
                     demo_context["is_active"] = False; break
             elif action == "COMMENT": pass
-            
-            demo_context["current_step"] += 1
-            broadcast_game_state_to_all_relevant() 
-            if demo_context["player_sid"] and demo_context["player_soul_id"] in game_state['souls'] : 
-                send_available_actions(demo_context["player_sid"], demo_context["player_soul_id"])
-            eventlet.sleep(0.2) 
 
-        if demo_context["is_active"]: 
+            demo_context["current_step"] += 1
+            broadcast_game_state_to_all_relevant()
+            eventlet.sleep(0.2)
+
+        if demo_context["is_active"]:
             send_debug_info(demo_context.get("player_sid"), "[DEMO] Script finished.")
             log_to_world("[DEMO] Demo sequence complete.", broadcast=True)
     finally:
         demo_context["script_execution_started"] = False
         if not demo_context["is_active"]: 
-            demo_context["current_step"] = 0 
+            demo_context["current_step"] = 0
             demo_context["orb_catalyst_artifact_id_pending_creation"] = None
             demo_context["newly_created_tool_function_name_pending_artifact"] = None
             demo_context["user_description_pending_artifact"] = None
+
 
 def main():
     global game_state, game_primitives_handler, demo_context
@@ -825,14 +1017,14 @@ def main():
     args = parser.parse_args()
 
     default_game_state_metadata = {'next_player_number': 1, 'initial_prompt_processing_started': False, 'initial_prompt_processing_complete': False}
-    default_game_state = {'souls': {}, 'locations': {}, 'artifacts': {}, 'environment_objects': {}, 'puzzle_states': {}, 'temporary_objects': {}, 'world_log': ["Welcome!"], 'server_metadata': default_game_state_metadata.copy()}
-
+    default_game_state_core = {'souls': {}, 'locations': {}, 'artifacts': {}, 'environment_objects': {}, 'puzzle_states': {}, 'temporary_objects': {}, 'world_log': ["Welcome!"], 'world_properties': {}, 'world_event_handlers': {}}
+    
     if args.demo:
         demo_script_content = load_demo_script(args.demo)
         if demo_script_content:
             demo_context["is_active"] = True; demo_context["script_path"] = args.demo
             demo_context["script_data"] = demo_script_content; demo_context["current_step"] = 0
-            demo_context["script_execution_started"] = False # Initialize explicitly
+            demo_context["script_execution_started"] = False
             print(f"[SERVER] Demo mode activated with script: {args.demo}")
         else:
             print(f"[SERVER] Failed to load demo script {args.demo}. Starting normally.")
@@ -848,33 +1040,46 @@ def main():
             try: os.remove(SAVE_FILE); print(f"[SERVER] Deleted save file: {SAVE_FILE}")
             except Exception as e: print(f"[SERVER] Error deleting save file {SAVE_FILE}: {e}")
         dynamic_executor.clear_function_store()
-        game_state = json.loads(json.dumps(default_game_state)) 
+        game_state = {**default_game_state_core, 'server_metadata': default_game_state_metadata.copy()}
         game_state['world_log'] = ["Welcome (World Recreated)!"]
-        game_state['server_metadata'] = default_game_state_metadata.copy()
     else:
         load_game_state() 
 
     game_primitives_handler = GamePrimitiveHandler(get_current_game_state, socketio)
 
-    register_host_api_for_llm('host_core_add_location_to_gamestate', "Core API: Creates a new location.", {'type':'object', 'properties': {'id':{'type':'string'}, 'name':{'type':'string'}, 'description':{'type':'string'}, 'landmarks':{'type':'object'}}, 'required':['id','name','description']}, game_primitives_handler.host_core_add_location_to_gamestate)
-    register_host_api_for_llm('host_core_add_artifact_to_gamestate', "Core API: Creates a new artifact definition in the game state.", {'type':'object', 'properties': {'id':{'type':'string'}, 'name':{'type':'string'}, 'description':{'type':'string'}, 'properties':{'type':'object'}, 'linked_dynamic_function_name':{'type':'string'}}, 'required':['id','name','description']}, game_primitives_handler.host_core_add_artifact_to_gamestate)
-    register_host_api_for_llm('host_give_artifact_to_soul', "Core API: Gives an existing artifact (by ID) to a soul (by ID). The artifact must already be defined. Returns JSON.", {'type':'object', 'properties': {'soul_id':{'type':'string'}, 'artifact_id':{'type':'string'}}, 'required':['soul_id', 'artifact_id']}, game_primitives_handler.host_give_artifact_to_soul)
-    register_host_api_for_llm('host_core_add_env_object_to_gamestate', "Core API: Creates an environment object.", {'type':'object', 'properties': {'id':{'type':'string'}, 'location_id':{'type':'string'}, 'type':{'type':'string'}, 'details':{'type':'object'}}, 'required':['id','location_id','type']}, game_primitives_handler.host_core_add_env_object_to_gamestate)
-    register_host_api_for_llm('host_core_initialize_puzzle_state', "Core API: Initializes a puzzle's state.", {'type':'object', 'properties': {'id':{'type':'string'}, 'initial_state':{'type':'object'}}, 'required':['id','initial_state']}, game_primitives_handler.host_core_initialize_puzzle_state)
+    register_host_api_for_llm('host_core_add_location_to_gamestate', "Core API: Creates a new location definition. Landmarks added separately.", {'type':'object', 'properties': {'id':{'type':'string'}, 'name':{'type':'string'}, 'description':{'type':'string'}}, 'required':['id','name','description']}, game_primitives_handler.host_core_add_location_to_gamestate)
+    register_host_api_for_llm('host_core_add_artifact_to_gamestate', "Core API: Creates a new artifact definition. 'properties' can include 'client_interaction_rules'.", {'type':'object', 'properties': {'id':{'type':'string'}, 'name':{'type':'string'}, 'description':{'type':'string'}, 'properties':{'type':'object'}, 'linked_dynamic_function_name':{'type':'string'}}, 'required':['id','name','description']}, game_primitives_handler.host_core_add_artifact_to_gamestate)
+    register_host_api_for_llm('host_give_artifact_to_soul', "Core API: Gives an existing artifact (by ID) to a soul (by ID). Returns JSON.", {'type':'object', 'properties': {'soul_id':{'type':'string'}, 'artifact_id':{'type':'string'}}, 'required':['soul_id', 'artifact_id']}, game_primitives_handler.host_give_artifact_to_soul)
+    register_host_api_for_llm('host_core_add_env_object_to_gamestate', "Core API: Creates an environment object. 'details' can include initial 'client_visual_update'.", {'type':'object', 'properties': {'id':{'type':'string'}, 'location_id':{'type':'string'}, 'type':{'type':'string'}, 'details':{'type':'object'}}, 'required':['id','location_id','type']}, game_primitives_handler.host_core_add_env_object_to_gamestate)
+    register_host_api_for_llm('host_core_initialize_puzzle_state', "Core API: Initializes a puzzle's state. 'initial_state' can include 'checking_dynamic_function_name'.", {'type':'object', 'properties': {'id':{'type':'string'}, 'initial_state':{'type':'object'}}, 'required':['id','initial_state']}, game_primitives_handler.host_core_initialize_puzzle_state)
+    
+    register_host_api_for_llm('host_set_world_property', "Core API: Sets a global world property (e.g., 'initial_start_location_id', 'ui_messages', 'client_default_settings'). Returns JSON.", {'type':'object', 'properties': {'property_name':{'type':'string'}, 'property_value':{'type':'any'}}, 'required':['property_name', 'property_value']}, game_primitives_handler.host_set_world_property)
+    register_host_api_for_llm('host_set_location_visual_config', "Client API: Sets visual configuration for a location. 'config' includes 'center_position_xyz', 'ground_type_key', and 'ground_config' (which has type-specific params like 'size_xz', 'color_hex', 'player_platform_size_xyz', etc.). Returns JSON.", {'type':'object', 'properties': {'location_id':{'type':'string'}, 'config':{'type':'object', 'description': "Full visual config for the location, including ground type and its parameters."}}, 'required':['location_id', 'config']}, game_primitives_handler.host_set_location_visual_config)
+    register_host_api_for_llm('host_set_landmark_visual_config', "Client API: Sets visual and semantic config for a landmark. 'config' includes 'display_name', 'relative_position_xyz', 'geometry_config' (type, parameters/dimensions/radius), 'material_config' (base_color_hex), 'targetable_as_env_object_id', 'is_exit_to_location_id', 'landmark_interaction_type_key'. Returns JSON.", {'type':'object', 'properties': {'location_id':{'type':'string'}, 'landmark_key':{'type':'string'}, 'config':{'type':'object', 'description': "Full visual and semantic config for the landmark."}}, 'required':['location_id', 'landmark_key', 'config']}, game_primitives_handler.host_set_landmark_visual_config)
+
     register_host_api_for_llm('host_log_message_to_world', "Core API: Logs a message to the global game world log.", {'type':'object', 'properties': {'message':{'type':'string'}}, 'required':['message']}, game_primitives_handler.host_log_message_to_world)
-    register_host_api_for_llm('host_apply_effect_on_environment_object', "Applies an effect to an environment object's 'details'. Returns JSON.", {'type':'object', 'properties': {'object_id':{'type':'string'}, 'effect_details':{'type':'object'}}, 'required':['object_id', 'effect_details']}, game_primitives_handler.api_apply_effect_on_environment_object)
-    register_host_api_for_llm('host_check_puzzle_condition', "Checks puzzle conditions. Returns JSON: {'condition_met': bool, 'message': str}.", {'type':'object', 'properties': {'puzzle_id':{'type':'string'}}, 'required':['puzzle_id']}, game_primitives_handler.api_check_puzzle_condition)
-    register_host_api_for_llm('host_trigger_world_event', "Triggers a world event. Returns JSON.", {'type':'object', 'properties': {'event_id':{'type':'string'}, 'soul_id':{'type':'string'}}, 'required':['event_id', 'soul_id']}, game_primitives_handler.api_trigger_world_event)
-    register_host_api_for_llm('host_create_temporary_object', "Creates a temporary object. Returns JSON. Needs 'soul_id' for context.", {'type':'object', 'properties': {'type':{'type':'string'},'duration':{'type':'integer'},'from_landmark_id': {'type':'string'},'to_landmark_id':{'type':'string'},'location_id':{'type':'string'}, 'soul_id':{'type':'string'}}, 'required':['type', 'to_landmark_id', 'location_id', 'soul_id']}, game_primitives_handler.api_create_temporary_object)
-    register_host_api_for_llm('host_get_entity_data', "Retrieves entity data. Returns JSON.", {'type':'object', 'properties': {'entity_id':{'type':'string'}}, 'required':['entity_id']}, game_primitives_handler.api_get_entity_data)
-    register_host_api_for_llm('host_get_location_data', "Retrieves location data. Returns JSON.", {'type':'object', 'properties': {'location_id':{'type':'string'}}, 'required':['location_id']}, game_primitives_handler.api_get_location_data)
-    register_host_api_for_llm('host_get_environment_object_data', "Retrieves env object data. Returns JSON.", {'type':'object', 'properties': {'object_id':{'type':'string'}}, 'required':['object_id']}, game_primitives_handler.api_get_environment_object_data)
+    register_host_api_for_llm('host_apply_effect_on_environment_object', "Applies an effect to an environment object's 'details'. 'effect_details' can include 'client_visual_update'. Returns JSON.", {'type':'object', 'properties': {'object_id':{'type':'string'}, 'effect_details':{'type':'object'}}, 'required':['object_id', 'effect_details']}, game_primitives_handler.host_apply_effect_on_environment_object)
+    register_host_api_for_llm('host_check_puzzle_condition', "Checks puzzle conditions by calling a registered dynamic function. Returns JSON: {'condition_met': bool, 'message': str}.", {'type':'object', 'properties': {'puzzle_id':{'type':'string'}}, 'required':['puzzle_id']}, game_primitives_handler.host_check_puzzle_condition)
+    register_host_api_for_llm('host_trigger_world_event', "Triggers a world event by calling a registered dynamic event handler. Returns JSON.", {'type':'object', 'properties': {'event_id':{'type':'string'}, 'soul_id':{'type':'string', 'description':'ID of soul triggering event, optional.'}, 'event_params': {'type':'object', 'description':'Custom parameters for the event handler.'}}, 'required':['event_id']}, game_primitives_handler.host_trigger_world_event)
+    register_host_api_for_llm('host_create_temporary_object', "Creates a temporary object (e.g. light bridge). 'client_visual_config' specifies appearance. Returns JSON.", {'type':'object', 'properties': {'type':{'type':'string'},'duration':{'type':'integer'},'from_landmark_id': {'type':'string'},'to_landmark_id':{'type':'string'},'location_id':{'type':'string'}, 'soul_id':{'type':'string'}, 'client_visual_config':{'type':'object', 'description': "Visual config like geometry, material, dimensions."}}, 'required':['type', 'to_landmark_id', 'location_id', 'soul_id', 'client_visual_config']}, game_primitives_handler.host_create_temporary_object)
+    
+    register_host_api_for_llm('host_get_entity_data', "Retrieves entity (soul) data. Returns JSON.", {'type':'object', 'properties': {'entity_id':{'type':'string'}}, 'required':['entity_id']}, game_primitives_handler.host_get_entity_data)
+    register_host_api_for_llm('host_get_location_data', "Retrieves basic location data (name, desc, exits). Returns JSON.", {'type':'object', 'properties': {'location_id':{'type':'string'}}, 'required':['location_id']}, game_primitives_handler.host_get_location_data) 
+    register_host_api_for_llm('host_get_environment_object_data', "Retrieves env object data (type, location, details). Returns JSON.", {'type':'object', 'properties': {'object_id':{'type':'string'}}, 'required':['object_id']}, game_primitives_handler.host_get_environment_object_data)
+
+    register_host_api_for_llm('host_register_puzzle_check_function', "Registers a dynamic function to check a puzzle's condition. Returns JSON.", {'type':'object', 'properties': {'puzzle_id':{'type':'string'}, 'checking_dynamic_function_name':{'type':'string'}}, 'required':['puzzle_id', 'checking_dynamic_function_name']}, game_primitives_handler.host_register_puzzle_check_function)
+    register_host_api_for_llm('host_register_event_handler_function', "Registers a dynamic function to handle a world event. Returns JSON.", {'type':'object', 'properties': {'event_id':{'type':'string'}, 'handler_dynamic_function_name':{'type':'string'}}, 'required':['event_id', 'handler_dynamic_function_name']}, game_primitives_handler.host_register_event_handler_function)
+    register_host_api_for_llm('host_set_puzzle_properties', "Updates properties of an existing puzzle state. Returns JSON.", {'type':'object', 'properties': {'puzzle_id':{'type':'string'}, 'properties':{'type':'object'}}, 'required':['puzzle_id', 'properties']}, game_primitives_handler.host_set_puzzle_properties)
+
 
     if not demo_context["is_active"] and not game_state['server_metadata']['initial_prompt_processing_started']:
         send_debug_info(None, "Non-demo mode: Processing initial prompt at startup if not already done.")
-        process_initial_prompt_commands() 
+        if not game_state['world_properties']: game_state['world_properties'] = {}
+        if not game_state['world_event_handlers']: game_state['world_event_handlers'] = {}
+        process_initial_prompt_commands()
     elif demo_context["is_active"] and (args.recreate or not game_state['server_metadata']['initial_prompt_processing_complete']):
          game_state['world_log'] = [f"[DEMO] Server awaiting DemoPlayer. World will be born live..."]
+
 
     signal.signal(signal.SIGINT, signal_handler_save_on_exit)
     print(f"Server starting on http://0.0.0.0:{PORT}")

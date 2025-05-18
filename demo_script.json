@@ -11,7 +11,7 @@
     "action": "USE_ARTIFACT",
     "artifact_name": "Flaming Ember",
     "args": {
-      "target_pedestal_id": "pedestal_fire"
+      "target_env_object_id": "pedestal_fire"
     },
     "log_message": "DemoPlayer uses Flaming Ember on pedestal_fire."
   },
@@ -23,7 +23,7 @@
     "action": "USE_ARTIFACT",
     "artifact_name": "Water Droplet",
     "args": {
-      "target_pedestal_id": "pedestal_water"
+      "target_env_object_id": "pedestal_water"
     },
     "log_message": "DemoPlayer uses Water Droplet on pedestal_water."
   },
@@ -35,7 +35,7 @@
     "action": "USE_ARTIFACT",
     "artifact_name": "Gust of Wind",
     "args": {
-      "target_pedestal_id": "pedestal_wind"
+      "target_env_object_id": "pedestal_wind"
     },
     "log_message": "DemoPlayer uses Gust of Wind on pedestal_wind."
   },
@@ -80,13 +80,15 @@
   {
     "action": "USE_ARTIFACT",
     "artifact_name_starts_with": "Orb: Create a temporary l",
-    "args": {},
+    "args": {
+      "target_landmark_id_for_bridge": "keyhole_platform_landmark"
+    },
     "log_message": "DemoPlayer uses the newly created light bridge Orb (in Vault Approach)."
   },
   {
     "action": "WAIT",
     "duration_ms": 3000,
-    "log_message": "Light bridge in Vault Approach should be active towards 'keyhole_platform_exit'."
+    "log_message": "Light bridge in Vault Approach should be active towards 'keyhole_platform_landmark'."
   },
   {
     "action": "COMMENT",
@@ -95,16 +97,19 @@
   {
     "action": "USE_ARTIFACT",
     "artifact_name": "Vault Key",
-    "args": {},
-    "log_message": "DemoPlayer uses Vault Key at Vault Approach."
+    "args": {
+        "target_env_object_id": "vault_keyhole"
+    },
+    "log_message": "DemoPlayer uses Vault Key at Vault Approach on the keyhole."
   },
   {
     "action": "WAIT",
     "duration_ms": 3000,
-    "log_message": "Vault door should now open as the condition (light bridge in Vault Approach) is met."
+    "log_message": "Vault door should now open as the condition (light bridge in Vault Approach and key used) is met."
   },
   {
     "action": "COMMENT",
     "text": "Demo complete!"
   }
 ]
+

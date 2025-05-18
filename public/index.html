@@ -1,557 +1,877 @@
 <!DOCTYPE html>
- <html>
- <head>
-     <title>Infinite MMORPG - Orb of Ingenuity Demo</title>
-     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-     <style>
-         body { font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; margin: 0; background-color: #111; color: #eee; overflow: hidden; font-size: 16px; }
-         #game-container { position: relative; flex-grow: 1; width: 100%; height: 100%; display: flex; flex-direction: column; }
-         #threejs-canvas { display: block; width: 100%; flex-grow: 1; } /* Canvas takes remaining space */
-         .ui-overlay { position: absolute; left: 0; right: 0; background-color: rgba(0,0,0,0.6); padding: 5px; box-sizing: border-box; z-index: 10;}
-         #log-area { top: 0; height: 25%; overflow-y: scroll; font-size: 0.8em; border-bottom: 1px solid #444;}
-         #log-area p { margin: 2px 0; }
-         #status-area { top: 25%; height: 20%; overflow-y: auto; font-size: 0.8em; border-top: 1px solid #444; padding: 8px;}
-         #action-area { bottom: 0; height: 30%; overflow-y: auto; border-top: 1px solid #444;}
-         #action-buttons button { display: block; width: 95%; margin: 5px auto; padding: 10px 10px; font-size: 0.9em; cursor: pointer; background-color: #3a5a97; color: white; border: 1px solid #5c7abd; border-radius: 4px; text-align: left; }
-         #action-buttons button:hover { background-color: #4a6ab7; }
-         #action-buttons button .desc { font-size: 0.7em; color: #ccc; display: block; margin-top: 3px;}
-         #debug-area { position: fixed; bottom: 31%; right: 5px; background: rgba(0,0,0,0.7); color: lime; font-family: monospace; font-size: 0.6em; max-height: 80px; width:120px; overflow-y: scroll; padding: 3px; opacity: 0.8; z-index: 100; border: 1px solid lime;}
-         h3 {margin-top: 0; margin-bottom: 3px; text-align: center; border-bottom: 1px solid #555; padding-bottom: 3px; font-size: 1em;}
-         #joystick-area { position: absolute; bottom: 35%; left: 10px; width: 100px; height: 100px; opacity: 0.5; z-index: 20;}
+<html>
+<head>
+    <title>Infinite MMORPG - Orb of Ingenuity Demo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; margin: 0; background-color: #111; color: #eee; overflow: hidden; font-size: 16px; }
+        #game-container { position: relative; flex-grow: 1; width: 100%; height: 100%; display: flex; flex-direction: column; }
+        #threejs-canvas { display: block; width: 100%; flex-grow: 1; cursor: default; }
+        #threejs-canvas.pointer-locked { cursor: none; }
 
+        .ui-overlay { position: absolute; background-color: rgba(0,0,0,0.5); padding: 3px; box-sizing: border-box; z-index: 10; border-radius: 3px; }
+        
+        #log-area { top: 5px; left: 5px; right: 5px; height: 12%; overflow-y: scroll; font-size: 0.7em; border: 1px solid #333;}
+        #log-area p { margin: 1px 0; }
+        #log-area h3 { display: none; }
 
-         @media (max-width: 768px) { /* Tablet and Mobile */
-            body { font-size: 14px; }
-            #log-area { height: 20%; font-size: 0.75em;}
-            #status-area { top: 20%; height: 15%; font-size: 0.75em; }
-            #action-area { height: 25%; font-size: 0.8em; } /* Make action area slightly bigger for taps */
-            #action-buttons button { padding: 12px 8px; font-size: 0.85em; }
-            #action-buttons button .desc { font-size: 0.65em; }
-            #debug-area { max-height: 60px; font-size: 0.5em; width: 100px; bottom: 26%;}
-            h3 { font-size: 0.9em; }
-            #joystick-area { width: 80px; height: 80px; bottom: 28%;}
-         }
-          @media (orientation: landscape) and (max-height: 450px) { /* Small landscape phones */
-            #log-area { height: 25%; }
-            #status-area { display: none; } /* Hide status on very small landscape to give space to actions/log */
-            #action-area { height: 35%; }
-            #joystick-area { bottom: 10px; left: 10px; width: 70px; height: 70px;}
-            #debug-area { bottom: 10px; }
-          }
+        #status-area { top: calc(12% + 10px); left: 5px; width: 200px; height: auto; max-height: 15%; overflow-y: auto; font-size: 0.65em; border: 1px solid #333; padding: 5px;}
+        #status-area strong { color: #aaffaa; } 
 
-     </style>
-     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-     <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" integrity="sha384-mkQ3/7FUtcGyoppY6bz/PORYoGqOl7/aSUMn2ymDOJcapfS6PHqxhRTMh1RR0Q6+" crossorigin="anonymous"></script>
-     <script src="https://yoannmoinet.github.io/nipplejs/javascripts/nipplejs.js"></script>
- </head>
- <body>
-     <div id="game-container">
-         <canvas id="threejs-canvas"></canvas>
-         <div id="log-area" class="ui-overlay">
-             <h3>World Log</h3>
-             <div id="log-content"></div>
-         </div>
-         <div id="status-area" class="ui-overlay">
-              Loading...
-         </div>
-         <div id="action-area" class="ui-overlay">
-             <h3>Inventory Actions</h3>
-             <div id="action-buttons"></div>
-         </div>
-         <div id="joystick-area"></div>
-     </div>
-      <div id="debug-area">
-          <div id="debug-content"></div>
-      </div>
+        #action-area {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            right: 5px;
+            height: 18%;
+            background-color: rgba(0,0,0,0.7);
+            border: 1px solid #444;
+            border-radius: 5px;
+            padding: 5px;
+            overflow-y: auto;
+            z-index: 20;
+            font-size: 0.75em;
+        }
+        #action-buttons button {
+            display: block;
+            width: calc(100% - 10px);
+            margin: 3px 5px;
+            padding: 6px;
+            background-color: #333;
+            color: #eee;
+            border: 1px solid #555;
+            border-radius: 3px;
+            cursor: pointer;
+            text-align: left;
+        }
+        #action-buttons button:hover { background-color: #444; }
+        #action-buttons p { color: #999; margin: 5px; text-align: center; }
+        #action-buttons .desc { font-size: 0.8em; color: #bbb; display: block; margin-top: 2px;}
 
-     <script>
-         const socket = io();
-
-         const logContent = document.getElementById('log-content');
-         const logArea = document.getElementById('log-area');
-         const statusArea = document.getElementById('status-area');
-         const actionButtons = document.getElementById('action-buttons');
-         const debugContent = document.getElementById('debug-content');
-         const canvas = document.getElementById('threejs-canvas');
-
-         let playerSoulId = null;
-         let currentGameState = {};
-
-         let scene, camera, renderer, playerAvatar;
-         const landmarkObjects = {};
-         const temporary3DObjects = {};
-         let mainGroundPlane, vaultPlatformPlayerSide, vaultPlatformKeyholeSide; 
-
-         const locationCenterPositions = {
-             trial_chamber: new THREE.Vector3(0,0,0),
-             vault_approach: new THREE.Vector3(10,0,0),
-             "LIMBO_VOID": new THREE.Vector3(0, -50, -100),
-             null: new THREE.Vector3(0,-50,-100), 
-             undefined: new THREE.Vector3(0,-50,-100) 
-         };
-         const landmarkPositions = { 
-             trial_chamber: {
-                 flame_pedestal_loc: new THREE.Vector3(2, 0, -2),
-                 water_pedestal_loc: new THREE.Vector3(0, 0, -3),
-                 wind_pedestal_loc: new THREE.Vector3(-2, 0, -2),
-                 sealed_door_exit: new THREE.Vector3(0, 0.5, -5)
-             },
-             vault_approach: {
-                 keyhole_platform_exit: new THREE.Vector3(0, 0, -4),
-                 vault_door_main: new THREE.Vector3(0, 1, -6)
-             }
-         };
-
-         let isPointerDragging = false;
-         let pointerDownTime = 0;
-         let dragThreshold = 5; 
-         let initialPointerPosition = {x:0, y:0};
-         let currentPointerPosition = { x: 0, y: 0 };
-         let isPointerDownOnCanvas = false;
-
-         let raycaster = new THREE.Raycaster();
-         let tapCoordinates = new THREE.Vector2();
-         let highlightedObject = null;
-         let lastSelectedTargetId = null;
-
-         let joystickMoveVector = new THREE.Vector2(0,0);
-         const playerMoveSpeed = 2.5; 
-         let lastFrameTime = performance.now();
-         
-         let clientSideLastLocationId = null;
-
-
-         function initThree() {
-             scene = new THREE.Scene();
-             scene.background = new THREE.Color(0x282c34);
-
-             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-             camera.position.set(0, 2, 5);
-
-             renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
-             renderer.setSize(window.innerWidth, window.innerHeight);
-
-             const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-             scene.add(ambientLight);
-             const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
-             directionalLight.position.set(5, 10, 7);
-             scene.add(directionalLight);
-
-             const playerGeometry = new THREE.BoxGeometry(0.5, 1, 0.5);
-             const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00dd00 });
-             playerAvatar = new THREE.Mesh(playerGeometry, playerMaterial);
-             playerAvatar.position.y = 0.5;
-             scene.add(playerAvatar);
-             
-             const groundGeometry = new THREE.PlaneGeometry(20, 20);
-             const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x4a4a4a, side: THREE.DoubleSide });
-             mainGroundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
-             mainGroundPlane.rotation.x = -Math.PI / 2;
-             mainGroundPlane.name = "mainGroundPlane";
-             scene.add(mainGroundPlane);
-             mainGroundPlane.visible = false;
-
-            const platGeo = new THREE.BoxGeometry(5, 0.2, 4);
-            const platMat = new THREE.MeshStandardMaterial({ color: 0x5a5a5a });
-            vaultPlatformPlayerSide = new THREE.Mesh(platGeo, platMat);
-            vaultPlatformPlayerSide.name = "vaultPlatformPlayerSide";
-            scene.add(vaultPlatformPlayerSide);
-            vaultPlatformPlayerSide.visible = false;
-
-            const keyholePlatGeo = new THREE.BoxGeometry(3, 0.2, 3);
-            vaultPlatformKeyholeSide = new THREE.Mesh(keyholePlatGeo, platMat);
-            vaultPlatformKeyholeSide.name = "vaultPlatformKeyholeSide";
-            scene.add(vaultPlatformKeyholeSide);
-            vaultPlatformKeyholeSide.visible = false;
-
-             canvas.addEventListener('pointerdown', onPointerDownCanvas, false);
-             canvas.addEventListener('pointermove', onPointerMoveCanvas, false);
-             canvas.addEventListener('pointerup', onPointerUpCanvas, false);
-             canvas.addEventListener('pointerout', onPointerUpCanvas, false); 
-             canvas.addEventListener('wheel', onWheelCanvas, { passive: false }); 
-
-             setupJoystick();
-             animate();
-             window.addEventListener('resize', onWindowResize, false);
-         }
-
-         function onWindowResize() {
-             camera.aspect = window.innerWidth / window.innerHeight;
-             camera.updateProjectionMatrix();
-             renderer.setSize(window.innerWidth, window.innerHeight);
-         }
-
-        function onPointerDownCanvas(event) {
-            if (event.target !== canvas) return;
-            isPointerDownOnCanvas = true;
-            isPointerDragging = false;
-            pointerDownTime = performance.now();
-            currentPointerPosition.x = event.clientX || (event.touches && event.touches[0].clientX);
-            currentPointerPosition.y = event.clientY || (event.touches && event.touches[0].clientY);
-            initialPointerPosition.x = currentPointerPosition.x;
-            initialPointerPosition.y = currentPointerPosition.y;
+        #pointer-lock-action-hud {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0,0,0,0.6);
+            color: white;
+            padding: 8px;
+            border-radius: 4px;
+            z-index: 100;
+            font-size: 0.9em;
+            display: none; 
+        }
+        #pointer-lock-action-hud .action-item-hud { padding: 4px; cursor: pointer; }
+        #pointer-lock-action-hud .action-item-hud:hover { background-color: rgba(255,255,255,0.1); }
+        #pointer-lock-action-hud .selected-action-hud { background-color: rgba(255,255,255,0.2); border: 1px solid white; }
+        #pointer-lock-action-hud #crosshair {
+            position: fixed; 
+            top: 50%; left: 50%;
+            width: 2px; height: 10px; background: white;
+            transform: translate(-50%, -50%);
+        }
+        #pointer-lock-action-hud #crosshair::before {
+            content: ''; display: block;
+            width: 10px; height: 2px; background: white;
+            position: absolute; top: 4px; left: -4px;
         }
 
-        function onPointerMoveCanvas(event) {
-            if (!isPointerDownOnCanvas) return;
-            const clientX = event.clientX || (event.touches && event.touches[0].clientX);
-            const clientY = event.clientY || (event.touches && event.touches[0].clientY);
+        #debug-area { position: fixed; bottom: calc(18% + 10px); right: 5px; background: rgba(0,0,0,0.6); color: lime; font-family: monospace; font-size: 0.6em; max-height: 60px; width:100px; overflow-y: scroll; padding: 2px; opacity: 0.7; z-index: 100; border: 1px solid lime;}
+        
+        .joystick-zone { position: absolute; width: 120px; height: 120px; z-index: 50; }
+        #joystick-move-zone { bottom: 30px; left: 30px; }
+        #joystick-rotate-zone { bottom: 30px; right: 30px; }
 
-            const deltaX = clientX - currentPointerPosition.x;
-            const deltaY = clientY - currentPointerPosition.y;
+        @media (max-width: 768px) { 
+           body { font-size: 14px; }
+           #log-area { height: 10%; font-size: 0.65em;}
+           #status-area { top: calc(10% + 10px); width: 180px; font-size: 0.6em; }
+           #action-area { height: 20%; font-size: 0.7em; } 
+           #action-buttons button { padding: 5px; font-size: 0.75em; }
+           .joystick-zone { width: 100px; height: 100px; }
+           #joystick-move-zone { bottom: 20px; left: 20px; }
+           #joystick-rotate-zone { bottom: 20px; right: 20px; }
+        }
+        @media (min-width: 769px) { 
+            #joystick-move-zone, #joystick-rotate-zone { display: none; }
+        }
+        @media (hover: none) and (pointer: coarse) { 
+            #joystick-move-zone, #joystick-rotate-zone { display: block !important; }
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" integrity="sha384-mkQ3/7FUtcGyoppY6bz/PORYoGqOl7/aSUMn2ymDOJcapfS6PHqxhRTMh1RR0Q6+" crossorigin="anonymous"></script>
+    <script src="https://yoannmoinet.github.io/nipplejs/javascripts/nipplejs.js"></script>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="threejs-canvas"></canvas>
+        <div id="log-area" class="ui-overlay">
+            <div id="log-content"></div>
+        </div>
+        <div id="status-area" class="ui-overlay"></div>
+        <div id="action-area" class="ui-overlay">
+            <div id="action-buttons"></div>
+        </div>
+        <div id="pointer-lock-action-hud" class="ui-overlay">
+            <div id="crosshair"></div>
+            <div id="hud-actions-list"></div>
+        </div>
+        <div id="joystick-move-zone" class="joystick-zone"></div>
+        <div id="joystick-rotate-zone" class="joystick-zone"></div>
+    </div>
+    <div id="debug-area"><div id="debug-content"></div></div>
 
-            if (Math.abs(deltaX) > dragThreshold || Math.abs(deltaY) > dragThreshold) {
-                isPointerDragging = true;
+    <script>
+        const socket = io();
+
+        const logContent = document.getElementById('log-content');
+        const logArea = document.getElementById('log-area');
+        const statusArea = document.getElementById('status-area');
+        const actionButtons = document.getElementById('action-buttons');
+        const pointerLockActionHUD = document.getElementById('pointer-lock-action-hud');
+        const hudActionsList = document.getElementById('hud-actions-list');
+        const debugContent = document.getElementById('debug-content');
+        const canvas = document.getElementById('threejs-canvas');
+
+        let playerSoulId = null;
+        let currentGameState = {}; 
+
+        let scene, camera, renderer, playerAvatar;
+        const landmarkObjects = {}; 
+        const temporary3DObjects = {}; 
+        let groundMeshes = {}; 
+
+        let raycaster = new THREE.Raycaster();
+        let highlightedObject = null; 
+        let lastSelectedTargetLandmarkKey = null; 
+
+        let lastFrameTime = performance.now();
+        let previousPlayerPosition = new THREE.Vector3();
+
+        let clientSideLastLocationId = null;
+        const keyStates = {}; 
+        let usingDesktopControls = false; 
+
+        const AUTO_SELECT_RADIUS_SQUARED = 2.5 * 2.5; 
+        const POINTER_LOCK_SELECT_RADIUS_SQUARED = 7.0 * 7.0; 
+        
+        let availablePointerLockActions = []; 
+        let selectedPointerLockActionIndex = -1;
+
+        let CAMERA_OFFSET = new THREE.Vector3(0, 2.5, 4.5);
+        let CAMERA_LOOK_AT_OFFSET_Y = 1.0;
+        let PLAYER_MOVE_SPEED = 2.5;
+        let PLAYER_ROTATE_SPEED = 1.5; 
+        let MOUSE_SENSITIVITY = 0.002;
+        let UI_LOG_MAX_ENTRIES = 20;
+
+        let cameraLookAtTarget = new THREE.Vector3();
+        let playerPitch = 0; 
+        const MIN_PITCH = -Math.PI / 2 + 0.2; 
+        const MAX_PITCH = Math.PI / 2 - 0.2;  
+
+        let moveJoystick = null;
+        let rotateJoystick = null;
+        let moveVector = { x: 0, y: 0 }; 
+        let rotateVector = { x: 0, y: 0 }; 
+
+        let lastWheelTime = 0;
+        const WHEEL_COOLDOWN_MS = 100;
+
+        function applyClientSettings(settings) {
+            if (!settings) return;
+            if (settings.camera) {
+                if (settings.camera.offset_xyz) CAMERA_OFFSET.fromArray(settings.camera.offset_xyz);
+                if (settings.camera.look_at_offset_y !== undefined) CAMERA_LOOK_AT_OFFSET_Y = settings.camera.look_at_offset_y;
             }
-
-            if (isPointerDragging) { 
-                const rotationSpeed = 0.004;
-                playerAvatar.rotation.y -= deltaX * rotationSpeed;
-                camera.rotation.x -= deltaY * rotationSpeed * 0.5; 
-                camera.rotation.x = Math.max(-Math.PI / 4, Math.min(Math.PI / 4, camera.rotation.x)); 
+            if (settings.player_controls) {
+                if (settings.player_controls.move_speed !== undefined) PLAYER_MOVE_SPEED = settings.player_controls.move_speed;
+                if (settings.player_controls.rotate_speed !== undefined) PLAYER_ROTATE_SPEED = settings.player_controls.rotate_speed;
+                if (settings.player_controls.mouse_sensitivity !== undefined) MOUSE_SENSITIVITY = settings.player_controls.mouse_sensitivity;
             }
-            currentPointerPosition.x = clientX;
-            currentPointerPosition.y = clientY;
+            if (settings.ui && settings.ui.log_max_entries !== undefined) {
+                UI_LOG_MAX_ENTRIES = settings.ui.log_max_entries;
+            }
+            addDebugMessage("Client settings applied/updated.");
         }
 
-        function onPointerUpCanvas(event) {
-            if (!isPointerDownOnCanvas) return;
-            const upTime = performance.now();
-            const timeDelta = upTime - pointerDownTime;
-            const distMoved = Math.sqrt(Math.pow(currentPointerPosition.x - initialPointerPosition.x, 2) + Math.pow(currentPointerPosition.y - initialPointerPosition.y, 2));
 
-            if (!isPointerDragging && timeDelta < 300 && distMoved < 10) { 
-                handleCanvasTap(event);
+        function initThree() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a1a); 
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true; 
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
+            directionalLight.position.set(5, 10, 7);
+            directionalLight.castShadow = true; 
+            scene.add(directionalLight);
+
+            const playerGeometry = new THREE.CylinderGeometry(0.25, 0.25, 1, 16); 
+            const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00dd00 });
+            playerAvatar = new THREE.Mesh(playerGeometry, playerMaterial);
+            playerAvatar.position.y = 0.5; 
+            playerAvatar.castShadow = true; 
+            scene.add(playerAvatar);
+            previousPlayerPosition.copy(playerAvatar.position);
+
+            const defaultGroundMaterial = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, receiveShadow: true });
+            groundMeshes['default_plane'] = new THREE.Mesh(new THREE.PlaneGeometry(1,1), defaultGroundMaterial.clone());
+            groundMeshes['default_plane'].rotation.x = -Math.PI / 2;
+            groundMeshes['default_plane'].name = "mainGroundPlane";
+            scene.add(groundMeshes['default_plane']);
+
+            groundMeshes['default_box_platform'] = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), defaultGroundMaterial.clone());
+            groundMeshes['default_box_platform'].name = "boxPlatform";
+            scene.add(groundMeshes['default_box_platform']);
+            
+            Object.values(groundMeshes).forEach(mesh => mesh.visible = false);
+
+
+            setupControls();
+            animate();
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function setupControls() {
+            const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+            usingDesktopControls = !isTouchDevice;
+
+            const joystickMoveZoneEl = document.getElementById('joystick-move-zone');
+            const joystickRotateZoneEl = document.getElementById('joystick-rotate-zone');
+
+            if (isTouchDevice) {
+                addDebugMessage("Touch device detected. Enabling virtual joysticks.");
+                if (joystickMoveZoneEl) joystickMoveZoneEl.style.display = 'block';
+                if (joystickRotateZoneEl) joystickRotateZoneEl.style.display = 'block';
+
+                if (typeof NippleJS !== 'undefined' && NippleJS && joystickMoveZoneEl && joystickRotateZoneEl) {
+                    moveJoystick = NippleJS.create({
+                        zone: joystickMoveZoneEl, mode: 'static', position: { left: '50%', top: '50%' }, color: 'white', size: 80
+                    });
+                    moveJoystick.on('move', (evt, data) => {
+                        const angle = data.angle.radian; const force = data.force > 1 ? 1 : data.force;
+                        moveVector.x = Math.cos(angle) * force; moveVector.y = Math.sin(angle) * force;
+                    });
+                    moveJoystick.on('end', () => { moveVector.x = 0; moveVector.y = 0; });
+
+                    rotateJoystick = NippleJS.create({
+                        zone: joystickRotateZoneEl, mode: 'static', position: { left: '50%', top: '50%' }, color: 'white', size: 80
+                    });
+                    rotateJoystick.on('move', (evt, data) => {
+                        const deadZone = 0.1; let dx = data.vector.x; let dy = data.vector.y;
+                        if (Math.abs(dx) < deadZone) dx = 0; if (Math.abs(dy) < deadZone) dy = 0;
+                        rotateVector.x = dx * 0.1; rotateVector.y = dy * 0.1;
+                    });
+                    rotateJoystick.on('end', () => { rotateVector.x = 0; rotateVector.y = 0; });
+                    addDebugMessage("Joysticks initialized.");
+                } else {
+                    addDebugMessage("Joystick Init Failed. Touch relies on taps.");
+                    if (joystickMoveZoneEl) joystickMoveZoneEl.style.display = 'none';
+                    if (joystickRotateZoneEl) joystickRotateZoneEl.style.display = 'none';
+                }
+            } else {
+                addDebugMessage("Desktop controls enabled.");
+                if (joystickMoveZoneEl) joystickMoveZoneEl.style.display = 'none';
+                if (joystickRotateZoneEl) joystickRotateZoneEl.style.display = 'none';
             }
-            isPointerDownOnCanvas = false;
-            isPointerDragging = false;
+
+            canvas.addEventListener('click', (event) => {
+                if (usingDesktopControls) {
+                    if (document.pointerLockElement !== canvas) {
+                        canvas.requestPointerLock().catch(err => {
+                            addDebugMessage("Pointer lock failed: " + err.message + ". Fallback click.");
+                            handleInteractionClick(event); 
+                        });
+                    }
+                } else {
+                    handleInteractionClick(event);
+                }
+            });
+
+            document.addEventListener('pointerlockchange', () => {
+                if (usingDesktopControls) {
+                    if (document.pointerLockElement === canvas) {
+                        addDebugMessage("Pointer locked"); pointerLockActionHUD.style.display = 'block';
+                        lastSelectedTargetLandmarkKey = null; updateContextualActionsDisplay(); 
+                    } else {
+                        addDebugMessage("Pointer unlocked"); pointerLockActionHUD.style.display = 'none';
+                        for (const key in keyStates) keyStates[key] = false;
+                    }
+                }
+            });
+            document.addEventListener('pointerlockerror', () => { if(usingDesktopControls) addDebugMessage("Pointer lock error."); });
+            document.addEventListener('keydown', (event) => { if (usingDesktopControls) { keyStates[event.key.toLowerCase()] = true; if (document.pointerLockElement === canvas && (event.key === 'Enter' || event.key.toLowerCase() === 'e')) { executeSelectedPointerLockAction(); event.preventDefault(); } } });
+            document.addEventListener('keyup', (event) => { if (usingDesktopControls) { keyStates[event.key.toLowerCase()] = false; } });
+            document.addEventListener('mousemove', (event) => { if (usingDesktopControls && document.pointerLockElement === canvas && playerAvatar) { playerAvatar.rotation.y -= event.movementX * MOUSE_SENSITIVITY; playerPitch -= event.movementY * MOUSE_SENSITIVITY; playerPitch = Math.max(MIN_PITCH, Math.min(MAX_PITCH, playerPitch)); } });
+            canvas.addEventListener('wheel', (event) => { if (usingDesktopControls && document.pointerLockElement === canvas && availablePointerLockActions.length > 0) { event.preventDefault(); const currentTime = performance.now(); if (currentTime - lastWheelTime > WHEEL_COOLDOWN_MS) { selectedPointerLockActionIndex -= Math.sign(event.deltaY); if (selectedPointerLockActionIndex < 0) selectedPointerLockActionIndex = availablePointerLockActions.length - 1; if (selectedPointerLockActionIndex >= availablePointerLockActions.length) selectedPointerLockActionIndex = 0; updatePointerLockHUD(); lastWheelTime = currentTime; } } });
         }
         
-        function onWheelCanvas(event) {
-            event.preventDefault(); 
-            const zoomSpeed = 0.01;
-            camera.position.z += event.deltaY * zoomSpeed;
-            camera.position.z = Math.max(2, Math.min(camera.position.z, 10)); 
-        }
+        function handleInteractionClick(event) { 
+            if (!currentGameState || !currentGameState.currentLocation || !playerAvatar || (usingDesktopControls && document.pointerLockElement === canvas)) return;
+            const rect = canvas.getBoundingClientRect(); const mouse = new THREE.Vector2();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1; mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const interactableMeshes = Object.values(landmarkObjects).filter(m => m.userData.isInteractable !== false);
+            const intersects = raycaster.intersectObjects(interactableMeshes, false);
 
-         function setupJoystick() {
-            const options = {
-                zone: document.getElementById('joystick-area'),
-                mode: 'static',
-                position: { left: '50%', top: '50%' },
-                color: 'rgba(128,128,128,0.8)',
-                size: Math.min(100, window.innerWidth * 0.2) 
-            };
-            const joyManager = nipplejs.create(options);
-            joyManager.on('move', function (evt, data) {
-                if (data.vector) joystickMoveVector.set(data.vector.x, data.vector.y);
-            });
-            joyManager.on('end', function () {
-                joystickMoveVector.set(0,0);
-            });
-        }
+            let clickedTargetKey = null;
+            if (intersects.length > 0) clickedTargetKey = intersects[0].object.userData.landmarkKey;
 
-         function animate() {
-            requestAnimationFrame(animate);
-            const currentTime = performance.now();
-            const deltaTime = (currentTime - lastFrameTime) / 1000.0;
-            lastFrameTime = currentTime;
-
-            if (playerAvatar && joystickMoveVector.lengthSq() > 0) {
-                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(playerAvatar.quaternion);
-                const right = new THREE.Vector3(1, 0, 0).applyQuaternion(playerAvatar.quaternion);
+            if (clickedTargetKey !== lastSelectedTargetLandmarkKey) {
+                if (lastSelectedTargetLandmarkKey && landmarkObjects[lastSelectedTargetLandmarkKey]) {
+                     try { landmarkObjects[lastSelectedTargetLandmarkKey].material.emissive.setHex(0x000000); } catch(e){}
+                } else if (highlightedObject) { try { highlightedObject.material.emissive.setHex(0x000000); } catch(e){} }
                 
-                let moveDirection = new THREE.Vector3();
-                moveDirection.addScaledVector(forward, joystickMoveVector.y * -1); 
-                moveDirection.addScaledVector(right, joystickMoveVector.x);
-                moveDirection.normalize();
-
-                playerAvatar.position.addScaledVector(moveDirection, playerMoveSpeed * deltaTime);
-                playerAvatar.position.y = 0.5; 
+                lastSelectedTargetLandmarkKey = clickedTargetKey;
+                highlightedObject = lastSelectedTargetLandmarkKey ? landmarkObjects[lastSelectedTargetLandmarkKey] : null;
+                if (highlightedObject) { try {highlightedObject.material.emissive.setHex(0x555555); } catch(e){} }
+                addDebugMessage("Clicked Target LM Key: " + (lastSelectedTargetLandmarkKey || "None"));
+                updateContextualActionsDisplay();
             }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const currentTime = performance.now(); const deltaTime = (currentTime - lastFrameTime) / 1000; lastFrameTime = currentTime;
 
             if (playerAvatar) {
-                const cameraOffset = new THREE.Vector3(0, 2.5, 3.5); 
-                const targetCameraPosition = playerAvatar.position.clone().add(cameraOffset.applyQuaternion(playerAvatar.quaternion));
-                camera.position.lerp(targetCameraPosition, 0.15);
-                camera.lookAt(playerAvatar.position.clone().add(new THREE.Vector3(0,0.5,0))); 
+                const moveSpeed = PLAYER_MOVE_SPEED * deltaTime; const rotateSpeed = PLAYER_ROTATE_SPEED * deltaTime;
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(playerAvatar.quaternion);
+                const right = new THREE.Vector3(1, 0, 0).applyQuaternion(playerAvatar.quaternion);
+
+                if (usingDesktopControls && document.pointerLockElement === canvas) {
+                    if (keyStates['w']) playerAvatar.position.addScaledVector(forward, moveSpeed); if (keyStates['s']) playerAvatar.position.addScaledVector(forward, -moveSpeed);
+                    if (keyStates['a']) playerAvatar.position.addScaledVector(right, -moveSpeed); if (keyStates['d']) playerAvatar.position.addScaledVector(right, moveSpeed);
+                } else if (!usingDesktopControls && moveJoystick) { 
+                    if (moveVector.y !== 0) playerAvatar.position.addScaledVector(forward.clone().multiplyScalar(moveVector.y > 0 ? 1 : -1), Math.abs(moveVector.y) * moveSpeed);
+                    if (moveVector.x !== 0) playerAvatar.position.addScaledVector(right.clone().multiplyScalar(moveVector.x > 0 ? 1 : -1), Math.abs(moveVector.x) * moveSpeed);
+                    if (rotateVector.x !== 0) playerAvatar.rotation.y -= rotateVector.x * rotateSpeed * 2;
+                    if (rotateVector.y !== 0) { playerPitch -= rotateVector.y * rotateSpeed * 1.5; playerPitch = Math.max(MIN_PITCH, Math.min(MAX_PITCH, playerPitch)); }
+                }
+                
+                const desiredCameraPosition = playerAvatar.position.clone().add(new THREE.Vector3(0, CAMERA_OFFSET.y, 0));
+                const offsetRotated = CAMERA_OFFSET.clone().applyAxisAngle(new THREE.Vector3(0,1,0), playerAvatar.rotation.y);
+                desiredCameraPosition.add(new THREE.Vector3(offsetRotated.x, 0, offsetRotated.z));
+                camera.position.lerp(desiredCameraPosition, 0.1); 
+                cameraLookAtTarget.copy(playerAvatar.position).add(new THREE.Vector3(0, CAMERA_LOOK_AT_OFFSET_Y, 0)); 
+                camera.lookAt(cameraLookAtTarget); camera.rotation.x += playerPitch; 
+
+                let currentFrameSelectedTargetKey = null; 
+                if (usingDesktopControls && document.pointerLockElement === canvas && camera) { 
+                    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera); 
+                    const interactableMeshes = Object.values(landmarkObjects).filter(m => m.userData.isInteractable !== false);
+                    const intersects = raycaster.intersectObjects(interactableMeshes, false);
+                    if (intersects.length > 0) {
+                        const closestIntersected = intersects[0].object;
+                        if (playerAvatar.position.distanceToSquared(closestIntersected.position) < POINTER_LOCK_SELECT_RADIUS_SQUARED) {
+                            currentFrameSelectedTargetKey = closestIntersected.userData.landmarkKey;
+                        }
+                    }
+                } else if (!usingDesktopControls || document.pointerLockElement !== canvas) { 
+                    if (lastSelectedTargetLandmarkKey && landmarkObjects[lastSelectedTargetLandmarkKey]) { 
+                        currentFrameSelectedTargetKey = lastSelectedTargetLandmarkKey;
+                    } else if (currentGameState.currentLocation && currentGameState.currentLocation.landmarks) { 
+                        let closestDistSq = AUTO_SELECT_RADIUS_SQUARED; let potentialTargetKey = null;
+                        for (const lmKey in landmarkObjects) {
+                            const landmarkMesh = landmarkObjects[lmKey];
+                            if (landmarkMesh.userData.isInteractable === false) continue;
+                            if (playerAvatar.position.distanceToSquared(landmarkMesh.position) < closestDistSq) {
+                                closestDistSq = playerAvatar.position.distanceToSquared(landmarkMesh.position); potentialTargetKey = lmKey;
+                            }
+                        }
+                        currentFrameSelectedTargetKey = potentialTargetKey;
+                    }
+                }
+
+                if (currentFrameSelectedTargetKey !== lastSelectedTargetLandmarkKey) {
+                    if (lastSelectedTargetLandmarkKey && landmarkObjects[lastSelectedTargetLandmarkKey]) {
+                        try { landmarkObjects[lastSelectedTargetLandmarkKey].material.emissive.setHex(0x000000); } catch(e){}
+                    } else if (highlightedObject) { try { highlightedObject.material.emissive.setHex(0x000000); } catch(e){} }
+                    
+                    lastSelectedTargetLandmarkKey = currentFrameSelectedTargetKey;
+                    highlightedObject = (lastSelectedTargetLandmarkKey && landmarkObjects[lastSelectedTargetLandmarkKey]) ? landmarkObjects[lastSelectedTargetLandmarkKey] : null;
+                    if (highlightedObject) { try { highlightedObject.material.emissive.setHex( (usingDesktopControls && document.pointerLockElement === canvas) ? 0x222222 : 0x555555); } catch(e){} }
+                    updateContextualActionsDisplay(); 
+                }
+                if (!playerAvatar.position.equals(previousPlayerPosition)) { previousPlayerPosition.copy(playerAvatar.position); }
             }
             renderer.render(scene, camera);
-         }
+        }
 
-         function addLogMessage(message, type = 'info') {
-             const p = document.createElement('p');
-             p.textContent = message;
-             if (type === 'error') p.style.color = '#ff8c8c';
-             if (type === 'success') p.style.color = '#8cff8c';
-             if (type === 'event') { p.style.color = '#8cb8ff'; p.style.fontWeight = 'bold';}
-             logContent.appendChild(p);
-             setTimeout(() => { logArea.scrollTop = logArea.scrollHeight; }, 0);
-         }
-         function addDebugMessage(message) {
-             const d = document.createElement('div');
-             d.textContent = message;
-             debugContent.appendChild(d);
-             debugContent.scrollTop = debugContent.scrollHeight;
-         }
-        
-        function setupLocationVisuals(locationId) {
-            const locCenter = locationCenterPositions[locationId] || locationCenterPositions['undefined'] || new THREE.Vector3(0,0,0);
-            
-            mainGroundPlane.visible = false;
-            vaultPlatformPlayerSide.visible = false;
-            vaultPlatformKeyholeSide.visible = false;
-
-            if (locationId === 'trial_chamber') {
-                mainGroundPlane.visible = true;
-                mainGroundPlane.position.copy(locCenter);
-            } else if (locationId === 'vault_approach') {
-                const currentLocLandmarkRelPositions = landmarkPositions[locationId] || {};
-                const keyholeRelPos = currentLocLandmarkRelPositions['keyhole_platform_exit'] || new THREE.Vector3(0, 0, -4);
-                const keyholeAbsPos = keyholeRelPos.clone().add(locCenter);
-
-                vaultPlatformPlayerSide.position.set(locCenter.x, locCenter.y - 0.1, locCenter.z + 2); 
-                vaultPlatformPlayerSide.visible = true;
-
-                vaultPlatformKeyholeSide.position.set(keyholeAbsPos.x, keyholeAbsPos.y - 0.1, keyholeAbsPos.z);
-                vaultPlatformKeyholeSide.visible = true;
-            } else { 
-                mainGroundPlane.visible = true; 
-                mainGroundPlane.position.copy(locCenter);
+        function updatePointerLockHUD() {
+            if (!pointerLockActionHUD || !hudActionsList) return;
+            if (!usingDesktopControls || document.pointerLockElement !== canvas || availablePointerLockActions.length === 0) {
+                pointerLockActionHUD.style.display = 'none'; return;
+            }
+            pointerLockActionHUD.style.display = 'block'; hudActionsList.innerHTML = '';
+            availablePointerLockActions.forEach((action, index) => {
+                const div = document.createElement('div'); div.className = 'action-item-hud'; div.textContent = action.name;
+                if (index === selectedPointerLockActionIndex) div.classList.add('selected-action-hud');
+                div.onclick = () => { if (usingDesktopControls && document.pointerLockElement === canvas) { selectedPointerLockActionIndex = index; executeSelectedPointerLockAction(); } };
+                hudActionsList.appendChild(div);
+            });
+            if (availablePointerLockActions.length > 0) {
+                const helpText = document.createElement('div'); helpText.textContent = '(Scroll/Click, E/Enter to use)';
+                helpText.style.cssText = 'font-size:0.8em; text-align:center; margin-top:5px; color:#ccc;';
+                hudActionsList.appendChild(helpText);
             }
         }
 
-        function updateLandmarks3D(locationId, landmarksData, envObjectsInLocation, allPuzzleStates) {
-            for (const key in landmarkObjects) {
-                scene.remove(landmarkObjects[key]); delete landmarkObjects[key];
+        function executeSelectedPointerLockAction() {
+            if (usingDesktopControls && document.pointerLockElement === canvas && selectedPointerLockActionIndex !== -1 && availablePointerLockActions[selectedPointerLockActionIndex]) {
+                const action = availablePointerLockActions[selectedPointerLockActionIndex];
+                addDebugMessage(`Executing PL Action: ${action.name}`);
+                if (action.type === 'move') socket.emit('playerMove', action.params);
+                else if (action.type === 'action') socket.emit('performAction', action.params);
             }
-            if (!landmarksData || !locationId) return;
+        }
 
-            const locCenter = locationCenterPositions[locationId] || locationCenterPositions['undefined'] || new THREE.Vector3(0,0,0);
-            const currentLocLandmarkRelPositions = landmarkPositions[locationId] || {};
+        function addLogMessage(message, type = 'info') {
+            const p = document.createElement('p'); p.textContent = message;
+            if (type === 'error') p.style.color = '#ffaaaa'; if (type === 'success') p.style.color = '#aaffaa';
+            if (type === 'event') { p.style.color = '#aaaaff'; p.style.fontStyle = 'italic';}
+            logContent.insertBefore(p, logContent.firstChild); 
+            while (logContent.children.length > UI_LOG_MAX_ENTRIES) { logContent.removeChild(logContent.lastChild); } 
+        }
+        function addDebugMessage(message) {
+            const d = document.createElement('div'); d.textContent = message;
+            debugContent.appendChild(d); if(debugContent.children.length > 10) { debugContent.removeChild(debugContent.firstChild); }
+            debugContent.scrollTop = debugContent.scrollHeight;
+        }
 
-            for (const [landmarkKey, landmarkName] of Object.entries(landmarksData)) {
-                const relPos = currentLocLandmarkRelPositions[landmarkKey] || new THREE.Vector3(Math.random()*4-2, 0.25, Math.random()*4-2);
+        function setupLocationVisuals(locationData) {
+            Object.values(groundMeshes).forEach(mesh => mesh.visible = false); 
+            if (!locationData || !locationData.client_visual_config) {
+                addDebugMessage("No visual config for location, using fallback ground.");
+                const fallbackPlane = groundMeshes['default_plane'];
+                if (fallbackPlane) {
+                    fallbackPlane.visible = true;
+                    fallbackPlane.position.set(0,0,0);
+                    fallbackPlane.scale.set(20,20,1);
+                    fallbackPlane.material.color.setHex(0x303030);
+                }
+                return;
+            }
+
+            const config = locationData.client_visual_config;
+            const groundConfig = config.ground_config || {};
+            const center = new THREE.Vector3().fromArray(config.center_position_xyz || [0,0,0]);
+            const groundColor = parseInt((groundConfig.color_hex || "#3a3a3a").replace("#",""), 16);
+
+            if (config.ground_type_key === 'flat_plane') {
+                const plane = groundMeshes['default_plane'];
+                if(plane) {
+                    plane.visible = true;
+                    plane.position.copy(center);
+                    const size = groundConfig.size_xz || [20,20];
+                    plane.scale.set(size[0], size[1], 1); 
+                    plane.material.color.setHex(groundColor);
+                }
+            } else if (config.ground_type_key === 'split_chasm_platforms') {
+                const playerPlatformMesh = groundMeshes['default_box_platform']; // Re-use or create specific if needed
+                const keyholePlatformMesh = groundMeshes['default_box_platform'].clone(); // Clone for the second platform
+                scene.add(keyholePlatformMesh); // Ensure cloned mesh is added
+                groundMeshes['keyhole_platform_temp'] = keyholePlatformMesh; // Track it for later removal if loc changes
+
+                if(playerPlatformMesh && keyholePlatformMesh) {
+                    playerPlatformMesh.visible = true; keyholePlatformMesh.visible = true;
+                    
+                    const pSize = groundConfig.player_platform_size_xyz || [5,0.2,4];
+                    playerPlatformMesh.scale.fromArray(pSize);
+                    playerPlatformMesh.position.set(center.x, center.y - pSize[1]/2, center.z); 
+                    playerPlatformMesh.material.color.setHex(groundColor);
+
+                    const kSize = groundConfig.keyhole_platform_size_xyz || [3,0.2,3];
+                    keyholePlatformMesh.scale.fromArray(kSize);
+                    const kRelPos = groundConfig.keyhole_platform_relative_pos_xz || [0, -4];
+                    keyholePlatformMesh.position.set(center.x + kRelPos[0], center.y - kSize[1]/2, center.z + kRelPos[1]);
+                    keyholePlatformMesh.material.color.setHex(groundColor);
+                }
+            } else if (config.ground_type_key === 'none') {
+                // No ground, often for void or abstract locations
+                 scene.background = new THREE.Color(groundColor); // Use ground color for void background
+            } else { 
+                 const fallbackPlane = groundMeshes['default_plane'];
+                 if(fallbackPlane){
+                    fallbackPlane.visible = true; fallbackPlane.position.copy(center);
+                    fallbackPlane.scale.set(20,20,1); fallbackPlane.material.color.setHex(0x303030);
+                 }
+            }
+        }
+
+        function createGeometryFromConfig(geomConfig) {
+            if (!geomConfig || !geomConfig.type) return new THREE.SphereGeometry(0.1, 8, 6); // Default tiny sphere
+
+            const type = geomConfig.type.toLowerCase();
+            const params = geomConfig.parameters || {};
+            const dims = geomConfig.dimensions || [0.2, 0.2, 0.2]; // Default small box
+            const radius = geomConfig.radius || 0.2; // Default small sphere radius
+            const segments = geomConfig.segments || [12, 8]; // Default sphere segments
+
+            switch(type) {
+                case 'box': return new THREE.BoxGeometry(dims[0] || 0.2, dims[1] || 0.2, dims[2] || 0.2);
+                case 'sphere': return new THREE.SphereGeometry(radius, segments[0] || 12, segments[1] || 8);
+                case 'cylinder': return new THREE.CylinderGeometry(params.radiusTop || radius, params.radiusBottom || radius, params.height || dims[1] || 0.5, params.radialSegments || segments[0] || 12);
+                case 'plane': return new THREE.PlaneGeometry(dims[0] || 1, dims[1] || 1);
+                default: return new THREE.SphereGeometry(0.1, 8, 6);
+            }
+        }
+
+        function updateLandmarks3D(locationData, envObjectsInLocation, allPuzzleStates) {
+            if (highlightedObject) { try { highlightedObject.material.emissive.setHex(0x000000); } catch (e) {} }
+            highlightedObject = null; 
+
+            for (const key in landmarkObjects) {
+                if(landmarkObjects[key]) { scene.remove(landmarkObjects[key]); landmarkObjects[key].geometry?.dispose(); landmarkObjects[key].material?.dispose(); }
+                delete landmarkObjects[key];
+            }
+
+            if (!locationData || !locationData.landmarks || !locationData.client_visual_config) return;
+
+            const locCenter = new THREE.Vector3().fromArray(locationData.client_visual_config.center_position_xyz || [0,0,0]);
+
+            for (const [landmarkKey, landmarkData] of Object.entries(locationData.landmarks)) {
+                const visConfig = landmarkData.client_visual_config;
+                if (!visConfig) continue;
+
+                const relPos = new THREE.Vector3().fromArray(visConfig.relative_position_xyz || [0,0.25,0]);
                 const absPos = relPos.clone().add(locCenter);
-                
-                const landmarkGeo = new THREE.SphereGeometry(0.2, 16, 16);
-                let landmarkMatColor = 0xaaaaaa;
 
-                let correspondingEnvObject = null;
-                if (envObjectsInLocation) {
-                    if (landmarkKey === 'flame_pedestal_loc') correspondingEnvObject = envObjectsInLocation.find(obj => obj.id === 'pedestal_fire');
-                    else if (landmarkKey === 'water_pedestal_loc') correspondingEnvObject = envObjectsInLocation.find(obj => obj.id === 'pedestal_water');
-                    else if (landmarkKey === 'wind_pedestal_loc') correspondingEnvObject = envObjectsInLocation.find(obj => obj.id === 'pedestal_wind');
-                    else if (landmarkKey === 'vault_door_main') correspondingEnvObject = envObjectsInLocation.find(obj => obj.id === 'vault_keyhole');
-                }
+                const landmarkGeo = createGeometryFromConfig(visConfig.geometry_config);
                 
-                if (correspondingEnvObject) {
-                    if (correspondingEnvObject.type === 'elemental_pedestal') {
-                        landmarkMatColor = correspondingEnvObject.details && correspondingEnvObject.details.is_active ? 0x00ff00 : 0xccaa88;
-                    } else if (correspondingEnvObject.id === 'vault_keyhole') {
-                        const vaultPuzzle = allPuzzleStates ? allPuzzleStates['unreachable_vault'] : null;
-                        if ((correspondingEnvObject.details && correspondingEnvObject.details.is_unlocked) || (vaultPuzzle && vaultPuzzle.is_open)) {
-                            landmarkMatColor = 0x7777ff;
-                        } else {
-                            landmarkMatColor = 0x333388;
-                        }
+                let currentHexColor = parseInt(((visConfig.material_config && visConfig.material_config.base_color_hex) || "#aaaaaa").replace("#",""), 16);
+                let isInteractable = visConfig.landmark_interaction_type_key !== 'door_inert';
+
+                const targetEnvId = visConfig.targetable_as_env_object_id;
+                if (targetEnvId && envObjectsInLocation) {
+                    const linkedEnvObject = envObjectsInLocation.find(obj => obj.id === targetEnvId);
+                    if (linkedEnvObject && linkedEnvObject.details && linkedEnvObject.details.client_visual_update) {
+                        const visualUpdate = linkedEnvObject.details.client_visual_update;
+                        if (visualUpdate.new_color_hex) currentHexColor = parseInt(visualUpdate.new_color_hex.replace("#",""), 16);
                     }
-                } else if (landmarkKey.includes("pedestal")) landmarkMatColor = 0xccaa88;
-                else if (landmarkKey.includes("door") || landmarkKey.includes("exit")) {
-                    if (landmarkKey === 'sealed_door_exit' && locationId === 'trial_chamber') {
-                        const trialPuzzle = allPuzzleStates ? allPuzzleStates['elemental_trial'] : null;
-                        landmarkMatColor = (trialPuzzle && trialPuzzle.is_complete) ? 0x77cc77 : 0x8888cc;
-                    } else landmarkMatColor = 0x8888cc;
+                }
+                
+                // Generalized visual state updates based on puzzle states or other landmark properties
+                // Example: if a landmark is an exit and its corresponding puzzle is complete, change color
+                if (visConfig.is_exit_to_location_id && visConfig.linked_puzzle_id_for_open_state) {
+                    const puzzle = allPuzzleStates?.[visConfig.linked_puzzle_id_for_open_state];
+                    if (puzzle && puzzle.is_complete) { // Assuming 'is_complete' implies open
+                         currentHexColor = parseInt(((visConfig.material_config && visConfig.material_config.open_color_hex) || "#77cc77").replace("#",""), 16);
+                    }
+                }
+                // Example for door_inert type that changes based on a puzzle
+                 if (visConfig.landmark_interaction_type_key === 'door_inert' && visConfig.linked_puzzle_id_for_open_state) {
+                    const puzzle = allPuzzleStates?.[visConfig.linked_puzzle_id_for_open_state];
+                    if (puzzle && puzzle.is_open) { // Assuming 'is_open' property
+                         currentHexColor = parseInt(((visConfig.material_config && visConfig.material_config.open_color_hex) || "#90ee90").replace("#",""), 16);
+                    }
                 }
 
-                const landmarkMat = new THREE.MeshStandardMaterial({ color: landmarkMatColor });
+
+                const landmarkMat = new THREE.MeshStandardMaterial({ color: currentHexColor, emissive: 0x000000 });
                 const landmarkMesh = new THREE.Mesh(landmarkGeo, landmarkMat);
                 landmarkMesh.position.copy(absPos);
-                landmarkMesh.userData = { id: landmarkKey, name: landmarkName, type: 'landmark', isInteractable: true }; 
+                landmarkMesh.userData = { 
+                    landmarkKey: landmarkKey, 
+                    name: landmarkData.name || landmarkKey, 
+                    type: 'landmark', 
+                    isInteractable: isInteractable,
+                    targetEnvId: targetEnvId, 
+                    isExitTo: visConfig.is_exit_to_location_id, 
+                    interactionTypeKey: visConfig.landmark_interaction_type_key 
+                };
                 scene.add(landmarkMesh);
                 landmarkObjects[landmarkKey] = landmarkMesh;
             }
         }
-        
-        function updateTemporaryObjects3D(tempObjectsData, currentLocationId) {
-            for (const objId in temporary3DObjects) {
-                if (!tempObjectsData || !tempObjectsData.find(obj => obj.id === objId && obj.location_id === currentLocationId)) {
-                    scene.remove(temporary3DObjects[objId]); delete temporary3DObjects[objId];
+
+
+        function updateTemporaryObjects3D(tempObjectsData, currentLocationData) {
+             for (const objId in temporary3DObjects) {
+                const objStillExists = tempObjectsData && tempObjectsData.find(obj => obj.id === objId && obj.location_id === currentLocationData?.id && obj.duration > 0);
+                if (!objStillExists) {
+                    if(temporary3DObjects[objId]) { scene.remove(temporary3DObjects[objId]); temporary3DObjects[objId].geometry?.dispose(); temporary3DObjects[objId].material?.dispose(); }
+                    delete temporary3DObjects[objId];
                 }
             }
-            if (!tempObjectsData || !currentLocationId) return;
+            if (!tempObjectsData || !currentLocationData || !currentLocationData.landmarks || !currentLocationData.client_visual_config) return;
 
-            const locCenter = locationCenterPositions[currentLocationId] || locationCenterPositions['undefined'] || new THREE.Vector3(0,0,0);
-            const currentLocLandmarkRelPositions = landmarkPositions[currentLocationId] || {};
+            const locCenter = new THREE.Vector3().fromArray(currentLocationData.client_visual_config.center_position_xyz || [0,0,0]);
 
             tempObjectsData.forEach(obj => {
-                if (obj.location_id !== currentLocationId || temporary3DObjects[obj.id]) return; 
+                if (obj.location_id !== currentLocationData.id || obj.duration <= 0 || temporary3DObjects[obj.id]) return; 
+                const visConfig = obj.client_visual_config || {};
+                const geomConfig = visConfig.geometry_config || {};
+                const matConfig = visConfig.material_config || {};
 
-                if (obj.type === 'light_bridge') {
-                    let fromPos = playerAvatar.position.clone(); 
-                    const toLandmarkKey = obj.to;
-                    let toPosRel = currentLocLandmarkRelPositions[toLandmarkKey] || new THREE.Vector3(0, 0.1, -5); 
-                    let toPosAbs = toPosRel.clone().add(locCenter);
 
-                    const distance = fromPos.distanceTo(toPosAbs);
-                    const bridgeMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.6 });
-                    const bridgeGeometry = new THREE.BoxGeometry(0.3, 0.1, distance); 
+                if (geomConfig.type === 'bridge_between_landmarks') { // Specific type for bridges
+                    const fromLandmarkData = currentLocationData.landmarks[obj.from_landmark_id];
+                    const toLandmarkData = currentLocationData.landmarks[obj.to_landmark_id]; // Changed from to_landmark_id
+                    
+                    if (!fromLandmarkData || !toLandmarkData || !fromLandmarkData.client_visual_config || !toLandmarkData.client_visual_config) {
+                        addDebugMessage(`Bridge failed: missing landmark data for ${obj.from_landmark_id} or ${obj.to_landmark_id}`);
+                        return;
+                    }
+
+                    const fromPosRel = new THREE.Vector3().fromArray(fromLandmarkData.client_visual_config.relative_position_xyz);
+                    const toPosRel = new THREE.Vector3().fromArray(toLandmarkData.client_visual_config.relative_position_xyz);
+                    const fromPosAbs = fromPosRel.clone().add(locCenter);
+                    const toPosAbs = toPosRel.clone().add(locCenter);
+                    
+                    const yOffset = geomConfig.parameters?.y_offset || 0.1; 
+                    fromPosAbs.y += yOffset; toPosAbs.y += yOffset;
+
+                    const distance = fromPosAbs.distanceTo(toPosAbs);
+                    if (distance < 0.01) return; 
+                    
+                    const bridgeMaterial = new THREE.MeshBasicMaterial({ 
+                        color: parseInt((matConfig.base_color_hex || "#33ccff").replace("#",""), 16), 
+                        transparent: matConfig.transparent !== undefined ? matConfig.transparent : true, 
+                        opacity: matConfig.opacity || 0.6, 
+                        side: THREE.DoubleSide 
+                    });
+                    const bridgeWidth = geomConfig.parameters?.width || 0.6;
+                    const bridgeHeight = geomConfig.parameters?.height || 0.08;
+                    const bridgeGeometry = new THREE.BoxGeometry(bridgeWidth, bridgeHeight, distance); 
+                    
                     const bridgeMesh = new THREE.Mesh(bridgeGeometry, bridgeMaterial);
-
-                    bridgeMesh.position.copy(fromPos).lerp(toPosAbs, 0.5); 
-                    bridgeMesh.lookAt(toPosAbs);
-                    bridgeMesh.position.y = fromPos.y - 0.4; 
+                    bridgeMesh.position.copy(fromPosAbs).lerp(toPosAbs, 0.5);
+                    const direction = new THREE.Vector3().subVectors(toPosAbs, fromPosAbs).normalize();
+                    const alignQuaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), direction);
+                    bridgeMesh.quaternion.copy(alignQuaternion);
 
                     scene.add(bridgeMesh);
                     temporary3DObjects[obj.id] = bridgeMesh;
-                    
-                    setTimeout(() => {
-                        if (temporary3DObjects[obj.id]) {
-                            scene.remove(temporary3DObjects[obj.id]); delete temporary3DObjects[obj.id];
-                        }
-                    }, obj.duration * 1000);
+                } else if (geomConfig.type) { // Generic temporary object from geomConfig
+                     const tempGeo = createGeometryFromConfig(geomConfig);
+                     const tempMat = new THREE.MeshStandardMaterial({
+                         color: parseInt((matConfig.base_color_hex || "#ffaa00").replace("#",""), 16),
+                         transparent: matConfig.transparent || false,
+                         opacity: matConfig.opacity || 1.0
+                     });
+                     const tempMesh = new THREE.Mesh(tempGeo, tempMat);
+                     const relPos = new THREE.Vector3().fromArray(visConfig.relative_position_xyz || [0,0,0]);
+                     tempMesh.position.copy(relPos.clone().add(locCenter));
+                     scene.add(tempMesh);
+                     temporary3DObjects[obj.id] = tempMesh;
                 }
             });
         }
 
-         function updateStatus(state) {
-              if (!state || !state.playerSoul ) {
-                  statusArea.innerHTML = "Waiting for server data..."; return;
-              }
-              currentGameState = state;
 
-              let currentLocationDisplay = state.currentLocation || { name: "The Void", description: "Loading...", landmarks: {}, exits: {}};
-              if (state.playerSoul.locationId === "LIMBO_VOID" || state.playerSoul.locationId === null || !state.currentLocation) {
-                  currentLocationDisplay = { id: state.playerSoul.locationId, name: "The Void", description: "Drifting in an unformed expanse...", exits: {}, landmarks: {}, temporary_notes: "None"};
+        function updateStatus(state) {
+              if (!state || !state.playerSoul ) { statusArea.innerHTML = "Connecting..."; return; }
+              currentGameState = state; 
+              if (state.worldProperties && state.worldProperties.client_default_settings) {
+                  applyClientSettings(state.worldProperties.client_default_settings);
               }
+              const worldProps = state.worldProperties || {};
+              const uiMessages = worldProps.ui_messages || {};
+              const uiSpecialNames = worldProps.ui_special_location_names || {};
 
-              let statusHTML = `
-                  <strong>${state.playerSoul.name}</strong> (ID: ${state.playerSoul.id.substring(0,8)})<br>
-                  Location: <strong>${currentLocationDisplay.name}</strong> (ID: ${currentLocationDisplay.id})<br>
-                  <em>${currentLocationDisplay.description}</em><br>
-                  Exits: ${Object.entries(currentLocationDisplay.exits || {}).map(([dir, loc_id]) => `${dir}: ${loc_id}`).join(', ') || 'None'} <br>
-                  Landmarks: ${currentLocationDisplay.landmarks ? Object.keys(currentLocationDisplay.landmarks).join(', ') : 'None'} <br>
-                  Temporary Notes: ${currentLocationDisplay.temporary_notes || 'None'} <br>
-                  Inventory: ${state.inventory ? state.inventory.map(a => a.name).join(', ') : 'Empty'}
-              `;
+
+              let currentLocationDisplay = state.currentLocation; 
+              if (!currentLocationDisplay || state.playerSoul.locationId === "LIMBO_VOID") { // Still use LIMBO_VOID as internal ID
+                  currentLocationDisplay = { 
+                      id: "LIMBO_VOID", 
+                      name: uiSpecialNames.limbo_void || "The Void", 
+                      description: uiMessages.limbo_void_description || "Adrift...", 
+                      client_visual_config: worldProps.void_visual_config || {center_position_xyz: [0,-50,-100], ground_type_key: 'none', ground_config: {color_hex: '#100510'}} 
+                    };
+              }
+              
+              let statusHTML = `<strong>${state.playerSoul.name}</strong> @ ${currentLocationDisplay.name}<br>`;
+              if (state.inventory && state.inventory.length > 0) {
+                statusHTML += `Inv: ${state.inventory.map(a => a.name.length > 15 ? a.name.substring(0,12)+"..." : a.name ).join(', ') }`;
+              } else { statusHTML += `Inv: Empty`; }
               statusArea.innerHTML = statusHTML;
 
               if (playerAvatar) {
                   const newLocationId = state.playerSoul.locationId || "LIMBO_VOID";
-                  
-                  if (newLocationId !== clientSideLastLocationId) { 
-                      let targetPlayerPos = locationCenterPositions[newLocationId];
-                      if(!targetPlayerPos) {
-                          console.warn(`No locationCenterPosition for ${newLocationId}, defaulting.`);
-                          targetPlayerPos = locationCenterPositions["undefined"] || new THREE.Vector3(0,0,0);
-                      }
+                  if (newLocationId !== clientSideLastLocationId) {
+                      addDebugMessage(`Loc change: ${clientSideLastLocationId} -> ${newLocationId}`);
+                      const locVisConfig = currentLocationDisplay.client_visual_config;
+                      let targetPlayerPos = new THREE.Vector3().fromArray(locVisConfig?.center_position_xyz || [0,0,0]);
+                      playerAvatar.position.copy(targetPlayerPos); playerAvatar.position.y = 0.5; 
+                      previousPlayerPosition.copy(playerAvatar.position);
+                      playerAvatar.rotation.y = 0; playerPitch = 0; 
+                      clientSideLastLocationId = newLocationId;
                       
-                      playerAvatar.position.copy(targetPlayerPos); 
-                      playerAvatar.position.y = 0.5; 
-
-                      clientSideLastLocationId = newLocationId; 
-                      setupLocationVisuals(newLocationId); 
+                      if(groundMeshes['keyhole_platform_temp']) { // Clean up cloned platform if it exists
+                        scene.remove(groundMeshes['keyhole_platform_temp']);
+                        groundMeshes['keyhole_platform_temp'].geometry?.dispose();
+                        groundMeshes['keyhole_platform_temp'].material?.dispose();
+                        delete groundMeshes['keyhole_platform_temp'];
+                      }
+                      setupLocationVisuals(currentLocationDisplay);
+                      updateLandmarks3D(currentLocationDisplay, state.environmentObjectsInLocation, state.allPuzzleStates);
+                      lastSelectedTargetLandmarkKey = null; 
+                  } else { 
+                     updateLandmarks3D(currentLocationDisplay, state.environmentObjectsInLocation, state.allPuzzleStates);
                   }
-                  updateLandmarks3D(newLocationId, currentLocationDisplay.landmarks, state.environmentObjectsInLocation, state.allPuzzleStates);
-                  updateTemporaryObjects3D(state.activeTemporaryObjects, newLocationId);
+                  updateTemporaryObjects3D(state.activeTemporaryObjects, currentLocationDisplay); 
               }
-         }
-         function updateLog(logEntries) {
+        }
+        function updateLog(logEntries) {
               if (!logEntries) return;
-              logContent.innerHTML = '';
-              logEntries.forEach(msg => addLogMessage(msg));
-         }
-         function renderActions(actions) {
-             actionButtons.innerHTML = '';
-             if (!actions || actions.length === 0) {
-                 actionButtons.innerHTML = '<p>No actions available.</p>'; return;
-             }
-             actions.forEach(actionArtifact => {
-                 const button = document.createElement('button');
-                 button.dataset.artifactId = actionArtifact.id;
-                 button.innerHTML = `${actionArtifact.name} <span class="desc">${actionArtifact.description || `(Use ${actionArtifact.name})`}</span>`;
-                 button.onclick = () => {
-                     addDebugMessage(`Clicked action: ${actionArtifact.name} (ID: ${actionArtifact.id}, Func: ${actionArtifact.toolName || 'N/A'})`);
-                     let args = {};
-                     if (actionArtifact.toolName === 'df_interact_with_pedestal') {
-                         if (lastSelectedTargetId) {
-                            args.target_pedestal_id = lastSelectedTargetId;
-                         } else {
-                            addLogMessage('Please tap on a pedestal in the 3D world first.', 'error'); return;
-                         }
-                     }
-                     socket.emit('performAction', { artifactId: actionArtifact.id, args: args });
-                     if (highlightedObject) highlightedObject.material.emissive.setHex(0x000000);
-                     highlightedObject = null; lastSelectedTargetId = null;
-                 };
-                 actionButtons.appendChild(button);
-             });
-         }
-
-        function handleCanvasTap(event) {
-            tapCoordinates.x = (event.clientX / window.innerWidth) * 2 - 1;
-            tapCoordinates.y = - (event.clientY / window.innerHeight) * 2 + 1;
-            raycaster.setFromCamera(tapCoordinates, camera);
-
-            const interactables = Object.values(landmarkObjects).filter(obj => obj.visible && obj.userData.isInteractable);
-            const intersects = raycaster.intersectObjects(interactables, false);
-
-            if (highlightedObject) {
-                highlightedObject.material.emissive.setHex(0x000000); highlightedObject = null;
-            }
-            lastSelectedTargetId = null;
-
-            if (intersects.length > 0) {
-                const clickedObj = intersects[0].object;
-                if (clickedObj.userData && clickedObj.userData.id) {
-                    highlightedObject = clickedObj;
-                    highlightedObject.material.emissive.setHex(0xffff00); 
-                    lastSelectedTargetId = clickedObj.userData.id;
-                    addLogMessage(`Targeted: ${clickedObj.userData.name || clickedObj.userData.id}`, 'info');
-                }
-            }
+              logEntries.slice().reverse().forEach(msg => { 
+                const existing = Array.from(logContent.querySelectorAll('p')).find(p => p.textContent === msg);
+                if(!existing) addLogMessage(msg); 
+              });
         }
 
-         socket.on('connect', () => {
-             addLogMessage('Connected!', 'success'); addDebugMessage(`Socket ID: ${socket.id}`);
-             clientSideLastLocationId = null; // Reset on connect
-             initThree(); 
-         });
-         socket.on('disconnect', () => { addLogMessage('Disconnected.', 'error'); });
-         socket.on('assignSoulId', (id) => {
-              playerSoulId = id; addDebugMessage(`Player Soul ID: ${playerSoulId}`);
-              socket.emit('requestState'); 
-          });
-         socket.on('gameStateUpdate', (state) => {
-              addDebugMessage('Received gameStateUpdate');
-              if (state.error){ addLogMessage(`Server Error: ${state.error}`, 'error'); return; }
-             updateStatus(state); updateLog(state.worldLog);
-         });
-         socket.on('availableActions', (actions) => {
-             addDebugMessage(`Received ${actions ? actions.length : 0} actions.`);
-             renderActions(actions);
-         });
-         socket.on('actionResult', (result) => {
-              addDebugMessage(`Action Result: Success=${result.success}, Msg=${result.message}`);
-              addLogMessage(result.message, result.success ? 'success' : (result.message.startsWith("EVENT:") ? 'event' : 'error'));
-              if (result.success && result.event === "PROMPT_USER_FOR_TOOL_DESCRIPTION") { 
-                  addLogMessage("The Orb of Ingenuity hums...", 'event');
-                  const userDescription = prompt("Describe the new power for the Orb (e.g., 'Create a temporary light bridge to the keyhole platform'):");
-                  if (userDescription && userDescription.trim() !== "") {
-                      socket.emit('submitToolDescription', {
-                          description: userDescription.trim(),
-                          catalyst_artifact_id: result.prompt_for_tool_artifact_id 
-                      });
-                  } else { addLogMessage("Orb command cancelled.", 'info'); }
-              }
-              socket.emit('requestState'); 
-         });
-         socket.on('debugInfo', (message) => { addDebugMessage(message); });
-         socket.on('requestState', () => { 
-                addDebugMessage('Server requested state refresh.');
-               if(playerSoulId) socket.emit('requestState');
-           });
-         addLogMessage('Attempting to connect...');
-     </script>
- </body>
- </html>
+        function updateContextualActionsDisplay() { 
+            actionButtons.innerHTML = ''; availablePointerLockActions = []; selectedPointerLockActionIndex = -1;
+            const playerSoul = currentGameState.playerSoul; const currentLocation = currentGameState.currentLocation;
+            const inventory = currentGameState.inventory; const allPuzzles = currentGameState.allPuzzleStates;
+
+            if (!playerSoul || !currentLocation || !currentLocation.landmarks) {
+                actionButtons.innerHTML = '<p>...</p>'; updatePointerLockHUD(); return;
+            }
+
+            const selectedLandmarkData = lastSelectedTargetLandmarkKey ? currentLocation.landmarks[lastSelectedTargetLandmarkKey] : null;
+            const selectedLandmarkVisConfig = selectedLandmarkData ? selectedLandmarkData.client_visual_config : null;
+
+            if (selectedLandmarkData && selectedLandmarkVisConfig) { 
+                const targetName = selectedLandmarkData.name || lastSelectedTargetLandmarkKey;
+                if (selectedLandmarkVisConfig.is_exit_to_location_id) {
+                    let canEnter = true; 
+                    let doorMessage = `Go to ${selectedLandmarkVisConfig.is_exit_to_location_id}`; // Use target location ID for clarity initially
+                    const exitDisplayName = selectedLandmarkVisConfig.exit_display_name || targetName; // Use a specific display name for the exit if provided
+                    doorMessage = `Go to ${exitDisplayName}`;
+
+
+                    if (selectedLandmarkVisConfig.linked_puzzle_id_for_open_state) {
+                        const puzzle = allPuzzles?.[selectedLandmarkVisConfig.linked_puzzle_id_for_open_state];
+                        if (puzzle && !puzzle.is_complete && !puzzle.is_open) { // Check both flags, assuming one of them means "passable"
+                             canEnter = false; 
+                             doorMessage = `${exitDisplayName} is sealed.`; 
+                             if (puzzle.custom_sealed_message) doorMessage = puzzle.custom_sealed_message;
+                        }
+                    }
+
+                    if(canEnter){
+                        const actionParams = { type: 'move', params: { exit_key: lastSelectedTargetLandmarkKey }, name: doorMessage };
+                        availablePointerLockActions.push(actionParams);
+                        const button = document.createElement('button'); button.innerHTML = doorMessage;
+                        button.onclick = () => socket.emit('playerMove', { exit_key: lastSelectedTargetLandmarkKey });
+                        actionButtons.appendChild(button);
+                    } else { const p = document.createElement('p'); p.textContent = doorMessage; p.style.color = '#aaa'; actionButtons.appendChild(p); }
+                }
+
+                if (inventory) {
+                    inventory.forEach(item => {
+                        const itemInteractionRules = item.properties?.client_interaction_rules;
+                        if (itemInteractionRules && Array.isArray(itemInteractionRules)) {
+                            itemInteractionRules.forEach(rule => {
+                                if (rule.requires_landmark_interaction_type_key && rule.requires_landmark_interaction_type_key === selectedLandmarkVisConfig.landmark_interaction_type_key) {
+                                    let actionName = (rule.action_name_template || "Use {artifact_name} on {target_name}")
+                                        .replace("{artifact_name}", item.name)
+                                        .replace("{target_name}", targetName);
+                                    
+                                    let argsForAction = {};
+                                    if (rule.passes_target_env_object_id_as_param && selectedLandmarkVisConfig.targetable_as_env_object_id) {
+                                        argsForAction[rule.passes_target_env_object_id_as_param] = selectedLandmarkVisConfig.targetable_as_env_object_id;
+                                    }
+                                    
+                                    const actionParams = { type: 'action', params: { artifactId: item.id, args: argsForAction }, name: actionName };
+                                    availablePointerLockActions.push(actionParams);
+                                    const button = document.createElement('button'); button.innerHTML = actionName;
+                                    button.onclick = () => socket.emit('performAction', { artifactId: item.id, args: argsForAction });
+                                    actionButtons.appendChild(button);
+                                }
+                            });
+                        }
+                    });
+                }
+            } 
+
+            if (inventory) {
+                inventory.forEach(item => {
+                    const itemInteractionRules = item.properties?.client_interaction_rules;
+                    if (itemInteractionRules && Array.isArray(itemInteractionRules)) {
+                        itemInteractionRules.forEach(rule => {
+                            if (rule.is_general_use) {
+                                let actionName = (rule.action_name_template || "Use {artifact_name}").replace("{artifact_name}", item.name);
+                                const actionParams = { type: 'action', params: { artifactId: item.id, args: {} }, name: actionName };
+                                if (!availablePointerLockActions.some(a => a.name === actionParams.name && a.params.artifactId === item.id)) {
+                                     availablePointerLockActions.push(actionParams);
+                                }
+                                const buttonExists = Array.from(actionButtons.children).some(btn => btn.textContent.startsWith(actionName));
+                                if(!buttonExists) {
+                                    const button = document.createElement('button');
+                                    button.innerHTML = `${actionName} <span class="desc">${item.description.substring(0,30) || ''}...</span>`;
+                                    button.onclick = () => socket.emit('performAction', { artifactId: item.id, args: {} });
+                                    actionButtons.appendChild(button);
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+            
+            if (actionButtons.children.length === 0) {
+                actionButtons.innerHTML = `<p>${lastSelectedTargetLandmarkKey ? 'No specific actions for ' + (selectedLandmarkData?.name || 'selected target') : 'Look around or check inventory.'}</p>`;
+            }
+            if (availablePointerLockActions.length > 0 && (selectedPointerLockActionIndex === -1 || selectedPointerLockActionIndex >= availablePointerLockActions.length)) {
+                selectedPointerLockActionIndex = 0;
+            } else if (availablePointerLockActions.length === 0) {
+                selectedPointerLockActionIndex = -1;
+            }
+            updatePointerLockHUD();
+        }
+
+
+        socket.on('connect', () => { addLogMessage('Connected to Orb Oracle!', 'success'); addDebugMessage(`SID: ${socket.id}`); clientSideLastLocationId = null; if (!scene) { initThree(); } });
+        socket.on('disconnect', () => { addLogMessage('Disconnected from Oracle.', 'error'); if(usingDesktopControls && document.pointerLockElement) document.exitPointerLock(); });
+        socket.on('assignSoulId', (id) => { playerSoulId = id; addDebugMessage(`Soul ID: ${playerSoulId.substring(0,8)}`); socket.emit('requestState'); });
+        
+        socket.on('gameStateUpdate', (state) => {
+            if (state.error){ addLogMessage(`Server Error: ${state.error}`, 'error'); return; }
+            const oldTargetKey = lastSelectedTargetLandmarkKey;
+            updateStatus(state); 
+            updateLog(state.worldLog); 
+            if (oldTargetKey === lastSelectedTargetLandmarkKey || !lastSelectedTargetLandmarkKey) { 
+                 updateContextualActionsDisplay(); 
+            }
+        });
+
+        socket.on('actionResult', (result) => {
+            addDebugMessage(`ActRes: ${result.success}, ${result.message ? result.message.substring(0,30) : 'No message'}`);
+            addLogMessage(result.message || (result.success ? "Action successful." : "Action failed."), result.success ? 'success' : (result.event ? 'event' : 'error'));
+            if (result.success && result.event === "PROMPT_USER_FOR_TOOL_DESCRIPTION") {
+                const displayMessage = result.display_message || "The Orb of Ingenuity awaits your command...";
+                addLogMessage(displayMessage, 'event');
+                let wasPointerLocked = false;
+                if (usingDesktopControls && document.pointerLockElement === canvas) { document.exitPointerLock(); wasPointerLocked = true; }
+                setTimeout(() => {
+                    const userDescription = prompt("Describe the new power for the Orb (e.g., 'Create a temporary light bridge to the keyhole platform'):");
+                    if (userDescription && userDescription.trim() !== "") {
+                        socket.emit('submitToolDescription', { description: userDescription.trim(), catalyst_artifact_id: result.prompt_for_tool_artifact_id });
+                    } else { addLogMessage("Orb command whisper faded.", 'info'); }
+                    if (wasPointerLocked && usingDesktopControls) { setTimeout(() => { if(!document.pointerLockElement) canvas.requestPointerLock().catch(err => console.error("Re-lock failed", err)); }, 500); }
+                }, 100);
+            }
+        });
+        socket.on('debugInfo', (message) => { addDebugMessage(message); });
+        
+        addLogMessage('Reaching out to the ether...');
+    </script>
+</body>
+</html>
+

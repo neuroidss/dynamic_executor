@@ -20,7 +20,7 @@ LANGCHAIN_EMBEDDING_MODEL = os.environ.get("LANGCHAIN_EMBEDDING_MODEL")
 CHROMA_URL = os.environ.get("CHROMA_URL")
 
 FUNCTION_COLLECTION_NAME = "dynamic_functions" # Stores definitions of LLM-generated functions
-MAX_SYNTAX_REPAIR_RETRIES = 2 # Number of retries for syntax errors
+MAX_SYNTAX_REPAIR_RETRIES = 3 # Increased retries slightly
 
 if not GEMINI_API_KEY: raise ValueError("GEMINI_API_KEY not set")
 if not OPENAI_API_BASE_URL: raise ValueError("OPENAI_API_BASE_URL not set")
@@ -85,8 +85,7 @@ def generate_function_creation_prompt(name, description, parameters_schema, host
     api_usage_section = """
     **Using Host-Provided APIs:**
     - To interact with the host system or other services, use the `external_apis` dictionary.
-    - This dictionary is provided by the host environment when your function is executed.
-    - It contains callable functions provided by the host.
+    - The `external_apis` dictionary, containing callable host functions, is directly available as a global-like variable within your function's execution scope. You do **not** need to access it from the `params` dictionary (e.g., do not use `params['external_apis']`).
     - Call these functions like: `result = external_apis['some_host_api_name'](arguments_dictionary_for_host_api)`
     - The `arguments_dictionary_for_host_api` should contain parameters as expected by that specific host API.
     - Your function's `params` argument may contain contextual data (like `params.get('soul_id')`, `params.get('location_id')`, `params.get('artifact_properties')`) needed by the host APIs. Ensure you pass these correctly.
@@ -121,16 +120,18 @@ def {function_name}(params):
         # CORRECT INDENTATION IS CRITICAL.
         # Example of accessing params and calling a host API:
         #   import uuid # Example import
+        #   import json # Example import for json.loads if needed
         #   required_data = params['my_required_param']
         #   optional_data = params.get('my_optional_param', 'default_value')
         #   unique_id_for_something = str(uuid.uuid4())
         #   
-        #   if 'host_api_example' in external_apis:
+        #   if 'host_api_example' in external_apis: # Note: 'external_apis' is used directly
         #       api_args = {{'data_for_api': required_data, 'context': params.get('soul_id'), 'id': unique_id_for_something}}
         #       host_result_str = external_apis['host_api_example'](api_args)
         #       # If API returns JSON string:
-        #       # host_data = json.loads(host_result_str) 
-        #       # return f"Host API said: {{host_data.get('message', host_result_str)}}"
+        #       #   host_data = json.loads(host_result_str) 
+        #       #   return f"Host API said: {{host_data.get('message', host_result_str)}}"
+        #       # Any json.JSONDecodeError will be caught by the main except block.
         #       return f"Host API result: {{host_result_str}}"
         #   else:
         #       return f"Logic for {function_name} with {{required_data}}. No host API call made or API not found."
@@ -139,42 +140,48 @@ def {function_name}(params):
         # Ensure all paths return a string.
         return f"Function '{function_name}' executed. Input params: {{str(params)}}. Implement your logic here."
 
-    except KeyError as e:
-        # Handle missing required parameters from `params`
-        return f"Error in {function_name}: Missing expected key in params: {{e}}"
     except Exception as error:
-        # Catch any other unexpected errors during execution
+        # Catch ALL errors during execution, including KeyError or issues from API calls.
         return f"Error executing {function_name}: {{error}}"
 """
     example_code_structure = example_code_structure_template.format(function_name=name)
 
     if is_repair:
-        return f"""You are an expert Python function generator. The Python code you previously generated for function '{name}' had a syntax error:
-{error_message}
+        repair_specific_guidance = ""
+        if error_message and ("expected 'except' or 'finally' block" in error_message or "unexpected EOF while parsing" in error_message):
+            repair_specific_guidance = "The previous code attempt was syntactically incomplete, likely missing a closing 'except Exception as error:' for the main 'try' block, or it did not implement all specified logical steps. Please ensure the entire function body is correctly enclosed in ONE 'try...except Exception as error:' block."
+        else:
+            repair_specific_guidance = f"The Python code you previously generated for function '{name}' had an error: {error_message}"
+
+        return f"""You are an expert Python function generator.
+{repair_specific_guidance}
 
 The faulty code was:
 ```python
 {previous_code}
 ```
 
-Please correct this specific syntax error and provide the complete, valid Python function code again.
+Please correct this error and provide the complete, valid Python function code again.
 **CRITICAL Instructions for Python Code Generation (Reminder):**
 1.  Write a single Python function named precisely `{name}`.
 2.  The function MUST accept a single argument: a dictionary named `params`.
-3.  Every `try` block MUST be correctly paired with at least one `except Exception as e:` block or a `finally:` block.
-4.  If you use modules like `uuid` (e.g., for `uuid.uuid4()`), you MUST include the `import uuid` statement at the beginning of the function body.
-5.  Do NOT include any comments, explanations, or surrounding text outside the function definition itself. Output only the `def {name}(params): ...` block.
-6.  Do NOT include markdown code block markers (e.g., ```python or ```) in your output.
-7.  The function should perform the action described in its original high-level description: {description}
-8.  Original Parameters Schema (for the 'params' argument):
+3.  The *entire main body* of your function, immediately after any import statements, MUST be wrapped in a single, top-level `try:` block. This `try:` block MUST be concluded with an `except Exception as error:\n    return f"Error executing {name}: {{error}}"` statement at the very end of the function body.
+4.  **NO NESTED `try-except` BLOCKS ARE ALLOWED.** The single top-level `try-except` block is the only one permitted.
+5.  If you use modules like `uuid` (e.g., for `uuid.uuid4()`) or `json` (for `json.loads()`), you MUST include the `import uuid` or `import json` statement at the beginning of the function body.
+6.  Access the `external_apis` dictionary directly (it's available in the function's scope). Do NOT use `params['external_apis']`.
+7.  Do NOT include any comments, explanations, or surrounding text outside the function definition itself. Output only the `def {name}(params): ...` block.
+8.  Do NOT include markdown code block markers (e.g., ```python or ```) in your output.
+9.  The function should perform the action described in its original high-level description: {description}
+10. Original Parameters Schema (for the 'params' argument):
     ```json
     {json.dumps(parameters_schema, indent=2)}
     ```
-9.  Available Host APIs (in `external_apis` dictionary) if needed:
+11. Available Host APIs (in `external_apis` dictionary) if needed:
     ```
     {host_provided_api_description if host_provided_api_description else "No specific host APIs were described for the original task."}
     ```
-10. Ensure all Python syntax, especially indentation, is flawless.
+12. If a host API is documented to return a JSON string, you MUST use `json.loads(result_string)` to parse it. Any errors during this, including `json.JSONDecodeError`, will be caught by the single top-level `try-except` block.
+13. Ensure all Python syntax, especially indentation and the single, complete `try-except` block, is flawless. All paths should return a string.
 
 **Your Task:**
 Generate *only* the corrected Python function code for `{name}`.
@@ -197,23 +204,25 @@ Generate *only* the corrected Python function code for `{name}`.
     2.  The function MUST accept a single argument: a dictionary named `params`.
     3.  The function should perform the action described in its high-level description, primarily by calling functions from the `external_apis` dictionary.
     4.  The function MUST return a single string indicating the result or outcome.
-    5.  **PYTHON INDENTATION IS PARAMOUNT!** Ensure all logic, especially within `try` and `except` blocks, is correctly indented.
-    6.  Every `try` block MUST be correctly paired with at least one `except Exception as e:` block or a `finally:` block. Handle errors by returning an informative error string starting with "Error: " from the `except` block (e.g., `return f"Error in {name}: Missing key {{e}}"` or `return f"Error executing {name}: {{error}}"`).
-    7.  If you use modules like `uuid` (e.g., for `uuid.uuid4()`), you MUST include the `import uuid` statement at the beginning of the function body. Similarly for `json` (`import json`) if needed for complex JSON manipulation, although simple `json.loads()` on API results is often directly usable.
-    8.  Do NOT include any comments, explanations, or surrounding text outside the function definition itself. Output only the `def {name}(params): ...` block.
-    9.  Do NOT include markdown code block markers (e.g., ```python or ```) in your output.
-    10. **Remember**: If a host API is documented to return a JSON string, you MUST use `json.loads(result_string)` to parse it into a Python dictionary or list before accessing its elements. The `json` module is available (either via `import json` or potentially directly via `external_apis` if provided by host).
+    5.  **PYTHON INDENTATION IS PARAMOUNT!** Ensure all logic, especially within the `try` and `except` blocks, is correctly indented.
+    6.  The *entire main body* of your function, immediately after any import statements, MUST be wrapped in a single, top-level `try:` block. This `try:` block MUST be concluded with an `except Exception as error:\n    return f"Error executing {name}: {{error}}"` statement at the very end of the function body.
+    7.  **NO NESTED `try-except` BLOCKS ARE ALLOWED.** The single top-level `try-except` block is the only one permitted. Any error, including `KeyError` for missing parameters or `json.JSONDecodeError` from API calls, must be caught by this single `except Exception as error:` block.
+    8.  If you use modules like `uuid` (e.g., for `uuid.uuid4()`) or `json` (for `json.loads()`), you MUST include the `import uuid` or `import json` statement at the beginning of the function body.
+    9.  Access the `external_apis` dictionary directly (it's available in the function's scope). Do NOT use `params['external_apis']`.
+    10. Do NOT include any comments, explanations, or surrounding text outside the function definition itself. Output only the `def {name}(params): ...` block.
+    11. Do NOT include markdown code block markers (e.g., ```python or ```) in your output.
+    12. **Remember**: If a host API is documented to return a JSON string, you MUST use `json.loads(result_string)` to parse it into a Python dictionary or list before accessing its elements. Any errors during this, including `json.JSONDecodeError`, will be caught by the single top-level `try-except` block.
 
     **Schema Parameter Access Examples (from `params` dictionary):**
     {param_access_section}
 
-    **Example Function Structure (Pay ATTENTION to INDENTATION, IMPORTS, and complete try-except blocks):**
+    **Example Function Structure (Pay ATTENTION to INDENTATION, IMPORTS, direct `external_apis` access, and the SINGLE top-level try-except block):**
     ```python
 {example_code_structure.strip()}
     ```
 
     **Your Task:**
-    Generate *only* the Python function code for `{name}` based *exactly* on the specification provided above. Ensure all Python syntax, especially indentation and complete `try-except` blocks, is flawless.
+    Generate *only* the Python function code for `{name}` based *exactly* on the specification provided above. Ensure all Python syntax, especially indentation and the single, complete `try-except` block, is flawless. All paths should return a string.
     """
 
 
@@ -291,11 +300,13 @@ class DynamicFunctionExecutor:
         self.debug_log(f"Attempting to create dynamic function: {new_function_name}")
         if not all([new_function_name, new_function_description, new_function_parameters_schema]):
             return "Error: Missing required arguments for function creation."
-        if not new_function_name.isidentifier() or new_function_name in ["params", "external_apis", "json", "uuid"]:
+        if not new_function_name.isidentifier() or new_function_name in ["params", "external_apis", "json", "uuid"]: # Added json and uuid as reserved contexts
             return f"Error: Invalid or reserved function name '{new_function_name}'."
 
         generated_code_string = ""
         last_error = None
+        sanitized_code = ""
+
 
         for attempt in range(MAX_SYNTAX_REPAIR_RETRIES + 1):
             try:
@@ -371,17 +382,23 @@ class DynamicFunctionExecutor:
 
     def _sanitize_generated_code(self, code_string, function_name):
         sanitized = code_string.replace('```python', '').replace('```', '').strip()
-        match = re.search(rf"^(def\s+{function_name}\s*\(\s*params\s*\):.*?)(?:\n\s*def\s|\n\n\n|\Z)", sanitized, re.DOTALL | re.MULTILINE)
-        block_to_return = sanitized 
+        # Try to extract only the function definition, even if there's extra text.
+        # This regex looks for `def function_name(params):` and captures everything until
+        # what looks like the start of another function def or too many blank lines.
+        match = re.search(rf"^(def\s+{function_name}\s*\(\s*params\s*\):.*?)(?:\n\s*(?:def\s|@|\#\#\#|\s*\n\s*\n)|# --- End of function ---|\Z)", sanitized, re.DOTALL | re.MULTILINE)
+
+        block_to_return = sanitized # Fallback to the whole sanitized string
         if match:
             block = match.group(1).strip()
+            # Ensure the extracted block actually starts with the function definition
             if block.startswith(f"def {function_name}(params):"):
                 block_to_return = block
-            else: 
+            else: # If the regex grabbed something but it's not the start, try a simpler find
                 direct_def_start = f"def {function_name}(params):"
                 start_index = sanitized.find(direct_def_start)
                 if start_index != -1:
-                    block_to_return = sanitized[start_index:] 
+                    # This is a bit naive, assumes the function is the last thing or only thing.
+                    block_to_return = sanitized[start_index:]
         elif not sanitized.startswith(f"def {function_name}(params):"):
              self.debug_log(f"Warning: Sanitized code for {function_name} does not start with expected def statement. Using as-is. Code: {sanitized[:200]}...")
 
@@ -410,6 +427,8 @@ class DynamicFunctionExecutor:
     def get_available_function_definitions_for_llm_discovery(self, context_query, count=5):
         self.debug_log(f"Querying for function schemas relevant to: '{context_query}' (max {count})")
         try:
+            # This is simplified for now, always returning the creation tool.
+            # A real implementation might query ChromaDB here based on context_query.
             available_defs = [{
                 'name': FUNCTION_CREATION_TOOL_DEFINITION['function']['name'],
                 'description': FUNCTION_CREATION_TOOL_DEFINITION['function']['description'],
@@ -451,33 +470,58 @@ class DynamicFunctionExecutor:
 
         try:
             params_for_actual_call = params_for_function.copy()
+            # For df_genesis_engine, params_for_function is empty, but the function itself might not declare 'params' if it's not used.
+            # It still needs external_apis though.
             if function_name == "df_genesis_engine":
-                params_for_actual_call['external_apis'] = external_apis_dict if external_apis_dict is not None else {}
+                # df_genesis_engine doesn't take 'params' in its definition for the LLM,
+                # but the exec environment needs it.
+                pass
+
+
             if schema and schema.get('required'):
                 for param_key in schema['required']:
                     if param_key not in params_for_function:
-                        raise ValueError(f"Missing required parameter '{param_key}' in params_for_function for {function_name}.")
+                        # Check if the parameter is actually expected by the function's generated code
+                        # This is tricky without parsing the Python AST. For now, rely on the schema.
+                        # If a function (like df_genesis_engine) has an empty schema but gets params, it's okay.
+                        # If it has a required param in schema but not provided, it's an error.
+                        if schema.get('properties', {}).get(param_key) is not None: # Check if param is actually in schema properties
+                             raise ValueError(f"Missing required parameter '{param_key}' in params_for_function for {function_name}.")
 
-            allowed_builtins = {'print':print,'len':len,'str':str,'int':int,'float':float,'bool':bool,'dict':dict,'list':list,'tuple':set,'set':set,'isinstance':isinstance,'Exception':Exception,'ValueError':ValueError,'TypeError':TypeError,'KeyError':KeyError, 'json': json, 'uuid': uuid, '__import__': __import__, 'globals': globals}
+
+            # Standard library modules available to the dynamic functions
+            # These are imported within the generated function code if needed.
+            allowed_builtins = {
+                'print':print,'len':len,'str':str,'int':int,'float':float,'bool':bool,
+                'dict':dict,'list':list,'tuple':tuple,'set':set, # Corrected tuple to be the type, not a new set
+                'isinstance':isinstance,
+                'Exception':Exception,'ValueError':ValueError,'TypeError':TypeError,'KeyError':KeyError,
+                '__import__': __import__, 'globals': globals
+                # 'json' and 'uuid' are provided in the execution_globals directly
+            }
             execution_globals = {
-                'params': params_for_actual_call, 
+                # 'params': params_for_actual_call, # This is passed to the function directly
                 'external_apis': external_apis_dict if external_apis_dict is not None else {},
                 '__builtins__': allowed_builtins,
-                'json': json, 
-                'uuid': uuid 
+                'json': json, # Make json module available
+                'uuid': uuid  # Make uuid module available
             }
 
+            # The generated code should be a complete function definition.
+            # We exec it to define the function in our execution_globals.
             compiled_code = compile(code_string, f'<function:{function_name}>', 'exec')
-            exec(compiled_code, execution_globals) 
+            exec(compiled_code, execution_globals)
 
             actual_function_to_call = execution_globals.get(function_name)
             if not callable(actual_function_to_call):
                  raise Exception(f"Code string did not define a callable function named '{function_name}'. Defined names: {list(execution_globals.keys())}")
 
             self.debug_log(f"Executing dynamically loaded function {function_name} from string...")
-            result = actual_function_to_call(params_for_actual_call) 
+            # The dynamically defined function will take 'params' as its argument.
+            result = actual_function_to_call(params_for_actual_call)
 
-            if not isinstance(result, str): 
+
+            if not isinstance(result, str):
                 self.debug_log(f"Warning: Dynamic function {function_name} did not return a string. Converting: {result}")
                 result = str(result)
             return result
@@ -488,21 +532,22 @@ class DynamicFunctionExecutor:
             if self.llm_repair_callback and callable(self.llm_repair_callback):
                 self.debug_log(f"LLM REPAIR HOOK: Invoking callback for function '{function_name}' due to error.")
                 try:
-                    api_desc_for_repair = None 
-                    if hasattr(self, 'get_host_api_description_for_repair_context'): 
-                        api_desc_for_repair = self.get_host_api_description_for_repair_context()
-                    
+                    api_desc_for_repair = None
+                    # This part is a bit conceptual, assuming the main server can provide its API list for repair context
+                    # if hasattr(self, 'get_host_api_description_for_repair_context'):
+                    #     api_desc_for_repair = self.get_host_api_description_for_repair_context()
+
                     self.llm_repair_callback(
                         function_name=function_name,
                         error=exec_error,
                         traceback_str=traceback.format_exc(),
-                        params_for_function=params_for_function,
-                        host_api_description_for_repair_context=api_desc_for_repair 
+                        params_for_function=params_for_function, # Pass the original params
+                        host_api_description_for_repair_context=api_desc_for_repair
                     )
                 except Exception as repair_hook_error:
                     print(f"CRITICAL: Error in LLM repair hook callback invocation itself: {repair_hook_error}\n{traceback.format_exc()}")
             else:
                 self.debug_log(f"LLM REPAIR HOOK: No callback registered or not callable for function '{function_name}'.")
-            
+
             return error_message_for_client
 

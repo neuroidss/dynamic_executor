@@ -1,7 +1,7 @@
 {
   "souls": {
-    "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6": {
-      "id": "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6",
+    "bbbe1210-d4a4-4c83-a35a-3085ac024d41": {
+      "id": "bbbe1210-d4a4-4c83-a35a-3085ac024d41",
       "name": "DemoPlayer",
       "location_id": "vault_approach",
       "inventory": [
@@ -10,33 +10,186 @@
         "wind_01",
         "key_01",
         "orb_01",
-        "charged_orb_09c1f38c-b08b-4323-9b74-a8a45eeb0643"
+        "charged_orb_0997026b-1452-4ca4-b549-6eaac67a599f"
       ],
       "type": "player",
-      "socket_id": "0Oy7LxAtNf2UzhNRAAAB"
+      "socket_id": "bJQ4LTdgPBjIRMqcAAAB"
     }
   },
   "locations": {
     "trial_chamber": {
       "id": "trial_chamber",
       "name": "Trial Chamber",
-      "description": "An ancient chamber with three pedestals: Flame, Water, and Wind. A sealed stone door blocks the exit. The once sealed stone door now stands open.",
-      "exits": {},
+      "description": "An ancient chamber with three pedestals... A sealed stone door blocks one exit.",
+      "exits": {
+        "sealed_door_exit_landmark": "vault_approach"
+      },
       "landmarks": {
-        "flame_pedestal_loc": "Flame Pedestal",
-        "water_pedestal_loc": "Water Pedestal",
-        "wind_pedestal_loc": "Wind Pedestal",
-        "sealed_door_exit": "Sealed stone door"
+        "flame_pedestal_loc": {
+          "key": "flame_pedestal_loc",
+          "name": "Flame Pedestal",
+          "client_visual_config": {
+            "display_name": "Flame Pedestal",
+            "relative_position_xyz": [
+              2,
+              0.25,
+              -2
+            ],
+            "geometry_config": {
+              "type": "sphere",
+              "radius": 0.2
+            },
+            "material_config": {
+              "base_color_hex": "#AA8866"
+            },
+            "targetable_as_env_object_id": "pedestal_fire",
+            "landmark_interaction_type_key": "pedestal"
+          }
+        },
+        "water_pedestal_loc": {
+          "key": "water_pedestal_loc",
+          "name": "Water Pedestal",
+          "client_visual_config": {
+            "display_name": "Water Pedestal",
+            "relative_position_xyz": [
+              0,
+              0.25,
+              -3
+            ],
+            "geometry_config": {
+              "type": "sphere",
+              "radius": 0.2
+            },
+            "material_config": {
+              "base_color_hex": "#AA8866"
+            },
+            "targetable_as_env_object_id": "pedestal_water",
+            "landmark_interaction_type_key": "pedestal"
+          }
+        },
+        "wind_pedestal_loc": {
+          "key": "wind_pedestal_loc",
+          "name": "Wind Pedestal",
+          "client_visual_config": {
+            "display_name": "Wind Pedestal",
+            "relative_position_xyz": [
+              -2,
+              0.25,
+              -2
+            ],
+            "geometry_config": {
+              "type": "sphere",
+              "radius": 0.2
+            },
+            "material_config": {
+              "base_color_hex": "#AA8866"
+            },
+            "targetable_as_env_object_id": "pedestal_wind",
+            "landmark_interaction_type_key": "pedestal"
+          }
+        },
+        "sealed_door_exit_landmark": {
+          "key": "sealed_door_exit_landmark",
+          "name": "sealed_door_exit_landmark",
+          "client_visual_config": {
+            "material_config": {
+              "base_color_hex": "#77CC77"
+            }
+          }
+        }
+      },
+      "client_visual_config": {
+        "center_position_xyz": [
+          0,
+          0,
+          0
+        ],
+        "ground_type_key": "flat_plane",
+        "ground_config": {
+          "size_xz": [
+            20,
+            20
+          ],
+          "color_hex": "#3a3a3a"
+        }
       }
     },
     "vault_approach": {
       "id": "vault_approach",
       "name": "Vault Approach",
-      "description": "A precarious ledge before a massive vault. A chasm separates you from a keyhole platform. The massive vault door now stands open.",
+      "description": "A precarious ledge before a massive vault. A chasm separates you from a keyhole platform.",
       "exits": {},
       "landmarks": {
-        "keyhole_platform_exit": "Keyhole platform",
-        "vault_door_main": "Massive vault door"
+        "keyhole_platform_landmark": {
+          "key": "keyhole_platform_landmark",
+          "name": "Keyhole Platform",
+          "client_visual_config": {
+            "display_name": "Keyhole Platform",
+            "relative_position_xyz": [
+              0,
+              0.25,
+              -4
+            ],
+            "geometry_config": {
+              "type": "sphere",
+              "radius": 0.3
+            },
+            "material_config": {
+              "base_color_hex": "#CCCC88"
+            },
+            "targetable_as_env_object_id": "vault_keyhole",
+            "landmark_interaction_type_key": "keyhole_target"
+          }
+        },
+        "vault_door_main_landmark": {
+          "key": "vault_door_main_landmark",
+          "name": "Massive Vault Door",
+          "client_visual_config": {
+            "display_name": "Massive Vault Door",
+            "relative_position_xyz": [
+              0,
+              1,
+              -6
+            ],
+            "geometry_config": {
+              "type": "box",
+              "dimensions": [
+                2,
+                3,
+                0.3
+              ]
+            },
+            "material_config": {
+              "base_color_hex": "#AA66DD"
+            },
+            "landmark_interaction_type_key": "door_inert"
+          }
+        }
+      },
+      "client_visual_config": {
+        "center_position_xyz": [
+          10,
+          0,
+          0
+        ],
+        "ground_type_key": "split_chasm_platforms",
+        "ground_config": {
+          "player_platform_size_xyz": [
+            5,
+            0.2,
+            4
+          ],
+          "keyhole_platform_size_xyz": [
+            3,
+            0.2,
+            3
+          ],
+          "keyhole_platform_relative_pos_xz": [
+            0,
+            -4
+          ],
+          "color_hex": "#4f4f4f"
+        }
       }
     }
   },
@@ -47,7 +200,14 @@
       "description": "A constantly burning ember.",
       "linked_dynamic_function_name": "df_interact_with_pedestal",
       "properties": {
-        "element_type": "fire"
+        "element_type": "fire",
+        "client_interaction_rules": [
+          {
+            "action_name_template": "Use {artifact_name} on {target_name}",
+            "requires_landmark_interaction_type_key": "pedestal",
+            "passes_target_env_object_id_as_param": "target_env_object_id"
+          }
+        ]
       }
     },
     "water_01": {
@@ -56,7 +216,14 @@
       "description": "A perfect, shimmering droplet.",
       "linked_dynamic_function_name": "df_interact_with_pedestal",
       "properties": {
-        "element_type": "water"
+        "element_type": "water",
+        "client_interaction_rules": [
+          {
+            "action_name_template": "Use {artifact_name} on {target_name}",
+            "requires_landmark_interaction_type_key": "pedestal",
+            "passes_target_env_object_id_as_param": "target_env_object_id"
+          }
+        ]
       }
     },
     "wind_01": {
@@ -65,30 +232,60 @@
       "description": "Feels like a captured breeze.",
       "linked_dynamic_function_name": "df_interact_with_pedestal",
       "properties": {
-        "element_type": "wind"
+        "element_type": "wind",
+        "client_interaction_rules": [
+          {
+            "action_name_template": "Use {artifact_name} on {target_name}",
+            "requires_landmark_interaction_type_key": "pedestal",
+            "passes_target_env_object_id_as_param": "target_env_object_id"
+          }
+        ]
       }
     },
     "key_01": {
       "id": "key_01",
       "name": "Vault Key",
-      "description": "A heavy key for the Unreachable Vault.",
+      "description": "A heavy key...",
       "linked_dynamic_function_name": "df_use_vault_key",
-      "properties": {}
+      "properties": {
+        "client_interaction_rules": [
+          {
+            "action_name_template": "Use {artifact_name} at {target_name}",
+            "requires_landmark_interaction_type_key": "keyhole_target",
+            "passes_target_env_object_id_as_param": "target_env_object_id"
+          }
+        ]
+      }
     },
     "orb_01": {
       "id": "orb_01",
       "name": "Orb of Ingenuity",
       "description": "A crystal orb humming with potential.",
       "linked_dynamic_function_name": "df_initiate_orb_tool_creation",
-      "properties": {}
+      "properties": {
+        "client_interaction_rules": [
+          {
+            "action_name_template": "Use {artifact_name}",
+            "is_general_use": true
+          }
+        ]
+      }
     },
-    "charged_orb_09c1f38c-b08b-4323-9b74-a8a45eeb0643": {
-      "id": "charged_orb_09c1f38c-b08b-4323-9b74-a8a45eeb0643",
+    "charged_orb_0997026b-1452-4ca4-b549-6eaac67a599f": {
+      "id": "charged_orb_0997026b-1452-4ca4-b549-6eaac67a599f",
       "name": "Orb: Create a temporary light ...",
       "description": "The Orb of Ingenuity, now resonating with power to: Create a temporary light bridge to the keyhole platform.",
-      "linked_dynamic_function_name": "df_user_d02f_54d5",
+      "linked_dynamic_function_name": "df_user_bbbe_3bad",
       "properties": {
-        "creator_soul_id": "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6"
+        "creator_soul_id": "bbbe1210-d4a4-4c83-a35a-3085ac024d41",
+        "client_interaction_rules": [
+          {
+            "action_name_template": "Use {artifact_name}",
+            "requires_landmark_interaction_type_key": "any",
+            "passes_target_env_object_id_as_param": "target_env_object_id_if_applicable",
+            "is_general_use": true
+          }
+        ]
       }
     }
   },
@@ -100,6 +297,9 @@
       "details": {
         "element_required": "fire",
         "is_active": true,
+        "client_visual_update": {
+          "new_color_hex": "#33FF33"
+        },
         "last_element_placed": "fire"
       }
     },
@@ -110,6 +310,9 @@
       "details": {
         "element_required": "water",
         "is_active": true,
+        "client_visual_update": {
+          "new_color_hex": "#33FF33"
+        },
         "last_element_placed": "water"
       }
     },
@@ -120,6 +323,9 @@
       "details": {
         "element_required": "wind",
         "is_active": true,
+        "client_visual_update": {
+          "new_color_hex": "#33FF33"
+        },
         "last_element_placed": "wind"
       }
     },
@@ -128,7 +334,10 @@
       "location_id": "vault_approach",
       "type": "keyhole",
       "details": {
-        "is_unlocked": true
+        "is_unlocked": false,
+        "client_visual_update": {
+          "new_color_hex": "#CCCC88"
+        }
       }
     }
   },
@@ -137,24 +346,47 @@
       "id": "elemental_trial",
       "active_pedestals_count": 0,
       "target_pedestals": 3,
-      "is_complete": true
+      "is_complete": true,
+      "pedestal_object_ids": [
+        "pedestal_fire",
+        "pedestal_water",
+        "pedestal_wind"
+      ],
+      "checking_dynamic_function_name": "df_check_elemental_trial_logic"
     },
-    "unreachable_vault": {
-      "id": "unreachable_vault",
+    "vault_access_puzzle": {
+      "id": "vault_access_puzzle",
       "keyhole_unlocked": false,
-      "is_open": true
+      "is_open": false,
+      "checking_dynamic_function_name": "df_check_vault_access_logic"
     }
   },
   "temporary_objects": {
-    "temp_light_bridge_d366": {
-      "id": "temp_light_bridge_d366",
+    "temp_light_bridge_3c68": {
+      "id": "temp_light_bridge_3c68",
       "type": "light_bridge",
       "location_id": "vault_approach",
-      "from": "player_current_pos",
-      "to": "keyhole_platform_exit",
-      "creation_time": 1747477190.0756714,
-      "duration": 15,
-      "creator_soul_id": "d02fa7b8-d54e-4528-8f49-2bce0cf44dd6"
+      "from_landmark_id": "player_current_pos",
+      "to_landmark_id": "keyhole_platform_landmark",
+      "creation_time": 1747565941.6122453,
+      "duration": 30,
+      "creator_soul_id": "bbbe1210-d4a4-4c83-a35a-3085ac024d41",
+      "client_visual_config": {
+        "type": "geometry",
+        "geometry_config": {
+          "type": "box",
+          "parameters": {
+            "size_xyz": [
+              1.0,
+              0.1,
+              1.0
+            ]
+          }
+        },
+        "material_config": {
+          "base_color_hex": "#ADD8E6"
+        }
+      }
     }
   },
   "world_log": [
@@ -164,7 +396,8 @@
     "Server: Executing df_genesis_engine to build the world...",
     "Genesis Engine: Creating locations...",
     "Genesis Engine: Creating environment objects...",
-    "Genesis Engine: Initializing puzzles...",
+    "Genesis Engine: Creating landmarks...",
+    "Genesis Engine: Initializing puzzles and logic...",
     "Genesis Engine: Creating artifacts...",
     "Genesis Engine: World structure complete!",
     "Server: df_genesis_engine execution finished. Result: World Genesis complete via df_genesis_engine!",
@@ -177,16 +410,21 @@
     "[DEMO] Demo step 1: COMMENT",
     "[DEMO] Demo step 2: WAIT",
     "[DEMO] DemoPlayer uses Flaming Ember on pedestal_fire.",
-    "Effect applied to env object 'pedestal_fire': {\"is_active\": true, \"last_element_placed\": \"fire\"}",
+    "[DEMO] DemoPlayer focusing on Flame Pedestal to use Flaming Ember.",
+    "Effect applied to env object 'pedestal_fire': {\"is_active\": true, \"last_element_placed\": \"fire\", \"client_visual_update\": {\"new_color_hex\": \"#33FF33\"}}",
     "[DEMO] Action result: fire placed on pedestal. It glows!",
     "[DEMO] Demo step 4: WAIT",
     "[DEMO] DemoPlayer uses Water Droplet on pedestal_water.",
-    "Effect applied to env object 'pedestal_water': {\"is_active\": true, \"last_element_placed\": \"water\"}",
+    "[DEMO] DemoPlayer focusing on Water Pedestal to use Water Droplet.",
+    "Effect applied to env object 'pedestal_water': {\"is_active\": true, \"last_element_placed\": \"water\", \"client_visual_update\": {\"new_color_hex\": \"#33FF33\"}}",
     "[DEMO] Action result: water placed on pedestal. It glows!",
     "[DEMO] Demo step 6: WAIT",
     "[DEMO] DemoPlayer uses Gust of Wind on pedestal_wind.",
-    "Effect applied to env object 'pedestal_wind': {\"is_active\": true, \"last_element_placed\": \"wind\"}",
+    "[DEMO] DemoPlayer focusing on Wind Pedestal to use Gust of Wind.",
+    "Effect applied to env object 'pedestal_wind': {\"is_active\": true, \"last_element_placed\": \"wind\", \"client_visual_update\": {\"new_color_hex\": \"#33FF33\"}}",
+    "World event 'elemental_trial_success' processing via 'df_handle_elemental_trial_success'.",
     "The Elemental Trial is complete! The sealed door in the Trial Chamber rumbles open.",
+    "A passage to the Vault Approach is now accessible from the Trial Chamber.",
     "DemoPlayer obtained Orb of Ingenuity.",
     "[DEMO] Action result: All pedestals active! Trial complete!",
     "[DEMO] Elemental Trial should be complete. Orb of Ingenuity acquired. Sealed door should look open.",
@@ -203,18 +441,68 @@
     "[DEMO] DemoPlayer moved from 'Trial Chamber' to 'Vault Approach'.",
     "[DEMO] Demo step 15: WAIT",
     "[DEMO] DemoPlayer uses the newly created light bridge Orb (in Vault Approach).",
-    "A light_bridge appeared from 'player_current_pos' to 'keyhole_platform_exit' in Vault Approach. It will last 15s.",
-    "[DEMO] Action result: light_bridge created to 'keyhole_platform_exit'.",
-    "[DEMO] Light bridge in Vault Approach should be active towards 'keyhole_platform_exit'.",
+    "A light_bridge appeared from 'player_current_pos' to 'keyhole_platform_landmark' in Vault Approach. It will last 30s.",
+    "[DEMO] Action result: Attempted to create a temporary light bridge to the keyhole platform. API response: {'message': \"light_bridge created to 'keyhole_platform_landmark'.\", 'object_id': 'temp_light_bridge_3c68'}",
+    "[DEMO] Light bridge in Vault Approach should be active towards 'keyhole_platform_landmark'.",
     "[DEMO] Demo step 18: COMMENT",
-    "[DEMO] DemoPlayer uses Vault Key at Vault Approach.",
-    "Effect applied to env object 'vault_keyhole': {\"is_unlocked\": true}",
-    "The Unreachable Vault door rumbles open!",
-    "[DEMO] Action result: Vault key clicks. The door opens!",
-    "[DEMO] Vault door should now open as the condition (light bridge in Vault Approach) is met.",
+    "[DEMO] DemoPlayer uses Vault Key at Vault Approach on the keyhole.",
+    "[DEMO] DemoPlayer focusing on Keyhole Platform to use Vault Key.",
+    "[DEMO] Action result: The chasm blocks the way to the keyhole.",
+    "[DEMO] Vault door should now open as the condition (light bridge in Vault Approach and key used) is met.",
     "[DEMO] Demo step 21: COMMENT",
     "[DEMO] Demo sequence complete."
   ],
+  "world_properties": {
+    "initial_start_location_id": "trial_chamber",
+    "initial_player_artifacts": [
+      "ember_01",
+      "water_01",
+      "wind_01",
+      "key_01"
+    ],
+    "orb_of_ingenuity_artifact_id": "orb_01",
+    "tool_creation_prompt_template": "Player wants to: \"{description}\". Make a tool. APIs: {api_list}",
+    "client_default_settings": {
+      "camera": {
+        "offset_xyz": [
+          0,
+          2.5,
+          4.5
+        ],
+        "look_at_offset_y": 1.0
+      },
+      "player_controls": {
+        "move_speed": 2.5,
+        "rotate_speed": 1.5,
+        "mouse_sensitivity": 0.002
+      },
+      "ui": {
+        "log_max_entries": 20
+      }
+    },
+    "void_visual_config": {
+      "center_position_xyz": [
+        0,
+        -50,
+        -100
+      ],
+      "ground_type_key": "none",
+      "ground_config": {
+        "color_hex": "#100510"
+      }
+    },
+    "ui_messages": {
+      "orb_tool_prompt_initiate": "The Orb of Ingenuity pulses, awaiting your creative command...",
+      "limbo_void_description": "Drifting in an unformed expanse, awaiting world genesis..."
+    },
+    "ui_special_location_names": {
+      "limbo_void": "The Void"
+    }
+  },
+  "world_event_handlers": {
+    "elemental_trial_success": "df_handle_elemental_trial_success",
+    "open_vault_door": "df_handle_open_vault_door"
+  },
   "server_metadata": {
     "next_player_number": 2,
     "initial_prompt_processing_started": true,
