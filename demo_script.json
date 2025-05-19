@@ -1,7 +1,7 @@
 [
   {
     "action": "COMMENT",
-    "text": "Demo Scenario: Player completes Elemental Trial, gets Orb, creates tool, solves vault puzzle."
+    "text": "Demo Scenario: Player completes Elemental Trial, gets Orb, exits Chamber, creates tool in Vault Approach, solves vault puzzle."
   },
   {
     "action": "WAIT",
@@ -80,7 +80,7 @@
   {
     "action": "WAIT",
     "duration_ms": 4500,
-    "log_message": "All pedestals active! Elemental Trial complete. Orb of Ingenuity acquired. Sealed door to Vault Approach opens."
+    "log_message": "All pedestals active! Elemental Trial complete. Orb of Ingenuity acquired. Sealed door in the Trial Chamber rumbles open."
   },
   {
     "action": "DEMO_FOCUS_ON_LANDMARK",
@@ -90,6 +90,40 @@
   {
     "action": "WAIT",
     "duration_ms": 1000
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 2000,
+    "log_message": "[DEMO] The Orb has been acquired. Now to leave the Trial Chamber."
+  },
+  {
+    "action": "DEMO_FOCUS_ON_LANDMARK",
+    "landmark_key": "sealed_door_exit_landmark",
+    "log_message": "[DEMO] DemoPlayer approaches the now open Passage to Vault Approach."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 2500,
+    "log_message": "[DEMO] (Arrived at Passage to Vault Approach)"
+  },
+  {
+    "action": "DEMO_USE_EXIT",
+    "exit_landmark_key": "sealed_door_exit_landmark",
+    "log_message": "[DEMO] DemoPlayer uses the Passage to Vault Approach."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 2500,
+    "log_message": "[DEMO] DemoPlayer has arrived in the Vault Approach, observing the chasm."
+  },
+   {
+    "action": "DEMO_FOCUS_ON_LANDMARK",
+    "landmark_key": null,
+    "log_message": "[DEMO] Now in the Vault Approach, DemoPlayer considers the chasm and the Orb."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 1500
   },
   {
     "action": "USE_ARTIFACT",
@@ -114,32 +148,12 @@
   {
     "action": "WAIT",
     "duration_ms": 2000,
-    "log_message": "[DEMO] The Orb has been charged. Now to leave the Trial Chamber."
+    "log_message": "[DEMO] The Orb has been charged with the light bridge ability."
   },
   {
     "action": "DEMO_FOCUS_ON_LANDMARK",
-    "landmark_key": "sealed_door_exit_landmark",
-    "log_message": "[DEMO] DemoPlayer approaches the now open Sealed Stone Door."
-  },
-  {
-    "action": "WAIT",
-    "duration_ms": 2500,
-    "log_message": "[DEMO] (Arrived at Sealed Stone Door)"
-  },
-  {
-    "action": "DEMO_USE_EXIT",
-    "exit_landmark_key": "sealed_door_exit_landmark",
-    "log_message": "[DEMO] DemoPlayer uses the Sealed Stone Door to go to the Vault Approach."
-  },
-  {
-    "action": "WAIT",
-    "duration_ms": 2500,
-    "log_message": "[DEMO] DemoPlayer has arrived in the Vault Approach, observing the chasm."
-  },
-  {
-    "action": "DEMO_FOCUS_ON_LANDMARK",
-    "landmark_key": null,
-    "log_message": "[DEMO] DemoPlayer prepares to use the light bridge tool while at the chasm edge."
+    "landmark_key": "keyhole_platform_landmark",
+    "log_message": "[DEMO] DemoPlayer prepares to use the light bridge tool while targeting the Keyhole Platform."
   },
   {
     "action": "WAIT",
@@ -148,8 +162,10 @@
   {
     "action": "USE_ARTIFACT",
     "artifact_name_starts_with": "Orb: Create a temporary l",
-    "args": {},
-    "log_message": "DemoPlayer uses the 'Orb: Create a temporary light ...' at the Vault Approach chasm."
+    "args": {
+        "target_env_object_id": "vault_keyhole"
+    },
+    "log_message": "DemoPlayer uses the 'Orb: Create a temporary light ...' targeting the Keyhole Platform."
   },
   {
     "action": "WAIT",
@@ -180,8 +196,28 @@
     "log_message": "Vault Key turns! The Vault Door opens!"
   },
   {
+    "action": "DEMO_FOCUS_ON_LANDMARK",
+    "landmark_key": "vault_door_main_landmark",
+    "log_message": "[DEMO] DemoPlayer approaches the now open Vault Door."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 2000,
+    "log_message": "[DEMO] (Arrived at Vault Door)"
+  },
+  {
+    "action": "DEMO_USE_EXIT",
+    "exit_landmark_key": "vault_door_main_landmark",
+    "log_message": "[DEMO] DemoPlayer enters the Vault."
+  },
+  {
+    "action": "WAIT",
+    "duration_ms": 2500,
+    "log_message": "[DEMO] DemoPlayer has entered the Vault Interior."
+  },
+  {
     "action": "COMMENT",
-    "text": "Demo complete!"
+    "text": "Demo complete! Player is now inside the Vault."
   }
 ]
 

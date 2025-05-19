@@ -23,7 +23,7 @@ FUNCTION_COLLECTION_NAME = "dynamic_functions" # Stores definitions of LLM-gener
 MAX_SYNTAX_REPAIR_RETRIES = 3 # Increased retries slightly
 
 if not GEMINI_API_KEY: raise ValueError("GEMINI_API_KEY not set")
-if not OPENAI_API_BASE_URL: raise ValueError("OPENAI_API_BASE_URL not set")
+if not OPENAI_API_BASE_URL: raise ValueError("OPENAI_API_BASE_URL set") # Corrected check
 if not OPENAI_LLM_MODEL: raise ValueError("OPENAI_LLM_MODEL not set")
 if not LANGCHAIN_EMBEDDING_MODEL: raise ValueError("LANGCHAIN_EMBEDDING_MODEL not set")
 if not CHROMA_URL: raise ValueError("CHROMA_URL not set")
@@ -33,7 +33,7 @@ FUNCTION_CREATION_TOOL_DEFINITION = {
     'type': 'function',
     'function': {
         'name': 'create_dynamic_function',
-        'description': 'Define and create a new Python function string that can be executed later. Takes the desired function name, a high-level description of its purpose, and a parameter schema for the function itself. The generated function code will be executed in an environment where it can call external functions via an \'external_apis\' dictionary, whose available functions are described by the host if provided.',
+        'description': 'Define and create a new Python function string that can be executed later. Takes the desired function name, a high-level description of its purpose, and a parameter schema for the function itself. The generated function code will be executed in an environment where it can call external functions via an \'external_apis\' dictionary, whose available functions are described by the host if provided. The generated function code should NOT include any try/except blocks, as the executor handles top-level error catching.',
         'parameters': {
             'type': 'object',
             'properties': {
@@ -113,45 +113,35 @@ def {function_name}(params):
     #
     # NECESSARY IMPORTS: If you use modules like `uuid` for `uuid.uuid4()`,
     # you MUST include `import uuid` at the START of this function body.
-    # Similarly for `json` (`import json`) if needed for complex JSON manipulation,
-    # though basic `json.loads()` on API results is often directly available.
+    # Similarly for `json` (`import json`) if needed for complex JSON manipulation.
+    # The executor handles top-level error catching, so DO NOT include try/except blocks.
 
-    try:
-        # CORRECT INDENTATION IS CRITICAL.
-        # Example of accessing params and calling a host API:
-        #   import uuid # Example import
-        #   import json # Example import for json.loads if needed
-        #   required_data = params['my_required_param']
-        #   optional_data = params.get('my_optional_param', 'default_value')
-        #   unique_id_for_something = str(uuid.uuid4())
-        #   
-        #   if 'host_api_example' in external_apis: # Note: 'external_apis' is used directly
-        #       api_args = {{'data_for_api': required_data, 'context': params.get('soul_id'), 'id': unique_id_for_something}}
-        #       host_result_str = external_apis['host_api_example'](api_args)
-        #       # If API returns JSON string:
-        #       #   host_data = json.loads(host_result_str) 
-        #       #   return f"Host API said: {{host_data.get('message', host_result_str)}}"
-        #       # Any json.JSONDecodeError will be caught by the main except block.
-        #       return f"Host API result: {{host_result_str}}"
-        #   else:
-        #       return f"Logic for {function_name} with {{required_data}}. No host API call made or API not found."
-
-        # Replace the above example with your actual logic.
-        # Ensure all paths return a string.
-        return f"Function '{function_name}' executed. Input params: {{str(params)}}. Implement your logic here."
-
-    except Exception as error:
-        # Catch ALL errors during execution, including KeyError or issues from API calls.
-        return f"Error executing {function_name}: {{error}}"
+    # Example of accessing params and calling a host API:
+    #   import uuid # Example import
+    #   import json # Example import for json.loads if needed
+    #   required_data = params['my_required_param']
+    #   optional_data = params.get('my_optional_param', 'default_value')
+    #   unique_id_for_something = str(uuid.uuid4())
+    #
+    #   # Note: 'external_apis' is used directly
+    #   api_args = {{'data_for_api': required_data, 'context': params.get('soul_id'), 'id': unique_id_for_something}}
+    #   host_result_str = external_apis['host_api_example'](api_args)
+    #   # If API returns JSON string:
+    #   #   host_data = json.loads(host_result_str)
+    #   #   return f"Host API said: {{host_data.get('message', host_result_str)}}"
+    #   # Any json.JSONDecodeError will be caught by the executor.
+    #   return f"Host API result: {{host_result_str}}"
+    #
+    # Replace the above example with your actual logic.
+    # Ensure all paths return a string.
+    return f"Function '{function_name}' executed. Input params: {{str(params)}}. Implement your logic here."
 """
     example_code_structure = example_code_structure_template.format(function_name=name)
 
     if is_repair:
         repair_specific_guidance = ""
-        if error_message and ("expected 'except' or 'finally' block" in error_message or "unexpected EOF while parsing" in error_message):
-            repair_specific_guidance = "The previous code attempt was syntactically incomplete, likely missing a closing 'except Exception as error:' for the main 'try' block, or it did not implement all specified logical steps. Please ensure the entire function body is correctly enclosed in ONE 'try...except Exception as error:' block."
-        else:
-            repair_specific_guidance = f"The Python code you previously generated for function '{name}' had an error: {error_message}"
+        # Removed specific try/except error messages as they are no longer expected
+        repair_specific_guidance = f"The Python code you previously generated for function '{name}' had an error: {error_message}"
 
         return f"""You are an expert Python function generator.
 {repair_specific_guidance}
@@ -165,23 +155,22 @@ Please correct this error and provide the complete, valid Python function code a
 **CRITICAL Instructions for Python Code Generation (Reminder):**
 1.  Write a single Python function named precisely `{name}`.
 2.  The function MUST accept a single argument: a dictionary named `params`.
-3.  The *entire main body* of your function, immediately after any import statements, MUST be wrapped in a single, top-level `try:` block. This `try:` block MUST be concluded with an `except Exception as error:\n    return f"Error executing {name}: {{error}}"` statement at the very end of the function body.
-4.  **NO NESTED `try-except` BLOCKS ARE ALLOWED.** The single top-level `try-except` block is the only one permitted.
-5.  If you use modules like `uuid` (e.g., for `uuid.uuid4()`) or `json` (for `json.loads()`), you MUST include the `import uuid` or `import json` statement at the beginning of the function body.
-6.  Access the `external_apis` dictionary directly (it's available in the function's scope). Do NOT use `params['external_apis']`.
-7.  Do NOT include any comments, explanations, or surrounding text outside the function definition itself. Output only the `def {name}(params): ...` block.
-8.  Do NOT include markdown code block markers (e.g., ```python or ```) in your output.
-9.  The function should perform the action described in its original high-level description: {description}
-10. Original Parameters Schema (for the 'params' argument):
+3.  The executor handles top-level error catching, so **DO NOT include any `try` or `except` blocks** in your generated code.
+4.  If you use modules like `uuid` (e.g., for `uuid.uuid4()`) or `json` (for `json.loads()`), you MUST include the `import uuid` or `import json` statement at the beginning of the function body.
+5.  Access the `external_apis` dictionary directly (it's available in the function's scope). Do NOT use `params['external_apis']`.
+6.  Do NOT include any comments, explanations, or surrounding text outside the function definition itself. Output only the `def {name}(params): ...` block.
+7.  Do NOT include markdown code block markers (e.g., ```python or ```) in your output.
+8.  The function should perform the action described in its original high-level description: {description}
+9.  Original Parameters Schema (for the 'params' argument):
     ```json
     {json.dumps(parameters_schema, indent=2)}
     ```
-11. Available Host APIs (in `external_apis` dictionary) if needed:
+10. Available Host APIs (in `external_apis` dictionary) if needed:
     ```
     {host_provided_api_description if host_provided_api_description else "No specific host APIs were described for the original task."}
     ```
-12. If a host API is documented to return a JSON string, you MUST use `json.loads(result_string)` to parse it. Any errors during this, including `json.JSONDecodeError`, will be caught by the single top-level `try-except` block.
-13. Ensure all Python syntax, especially indentation and the single, complete `try-except` block, is flawless. All paths should return a string.
+11. If a host API is documented to return a JSON string, you MUST use `json.loads(result_string)` to parse it. Any errors during this, including `json.JSONDecodeError`, will be caught by the executor.
+12. Ensure all Python syntax, especially indentation, is flawless. All paths should return a string.
 
 **Your Task:**
 Generate *only* the corrected Python function code for `{name}`.
@@ -204,32 +193,31 @@ Generate *only* the corrected Python function code for `{name}`.
     2.  The function MUST accept a single argument: a dictionary named `params`.
     3.  The function should perform the action described in its high-level description, primarily by calling functions from the `external_apis` dictionary.
     4.  The function MUST return a single string indicating the result or outcome.
-    5.  **PYTHON INDENTATION IS PARAMOUNT!** Ensure all logic, especially within the `try` and `except` blocks, is correctly indented.
-    6.  The *entire main body* of your function, immediately after any import statements, MUST be wrapped in a single, top-level `try:` block. This `try:` block MUST be concluded with an `except Exception as error:\n    return f"Error executing {name}: {{error}}"` statement at the very end of the function body.
-    7.  **NO NESTED `try-except` BLOCKS ARE ALLOWED.** The single top-level `try-except` block is the only one permitted. Any error, including `KeyError` for missing parameters or `json.JSONDecodeError` from API calls, must be caught by this single `except Exception as error:` block.
-    8.  If you use modules like `uuid` (e.g., for `uuid.uuid4()`) or `json` (for `json.loads()`), you MUST include the `import uuid` or `import json` statement at the beginning of the function body.
-    9.  Access the `external_apis` dictionary directly (it's available in the function's scope). Do NOT use `params['external_apis']`.
-    10. Do NOT include any comments, explanations, or surrounding text outside the function definition itself. Output only the `def {name}(params): ...` block.
-    11. Do NOT include markdown code block markers (e.g., ```python or ```) in your output.
-    12. **Remember**: If a host API is documented to return a JSON string, you MUST use `json.loads(result_string)` to parse it into a Python dictionary or list before accessing its elements. Any errors during this, including `json.JSONDecodeError`, will be caught by the single top-level `try-except` block.
+    5.  **PYTHON INDENTATION IS PARAMOUNT!** Ensure all logic is correctly indented.
+    6.  The executor handles top-level error catching, so **DO NOT include any `try` or `except` blocks** in your generated code.
+    7.  If you use modules like `uuid` (e.g., for `uuid.uuid4()`) or `json` (for `json.loads()`), you MUST include the `import uuid` or `import json` statement at the beginning of the function body.
+    8.  Access the `external_apis` dictionary directly (it's available in the function's scope). Do NOT use `params['external_apis']`.
+    9.  Do NOT include any comments, explanations, or surrounding text outside the function definition itself. Output only the `def {name}(params): ...` block.
+    10. Do NOT include markdown code block markers (e.g., ```python or ```) in your output.
+    11. **Remember**: If a host API is documented to return a JSON string, you MUST use `json.loads(result_string)` to parse it into a Python dictionary or list before accessing its elements. Any errors during this, including `json.JSONDecodeError`, will be caught by the executor.
 
     **Schema Parameter Access Examples (from `params` dictionary):**
     {param_access_section}
 
-    **Example Function Structure (Pay ATTENTION to INDENTATION, IMPORTS, direct `external_apis` access, and the SINGLE top-level try-except block):**
+    **Example Function Structure (Pay ATTENTION to INDENTATION, IMPORTS, direct `external_apis` access, and the ABSENCE of try-except blocks):**
     ```python
 {example_code_structure.strip()}
     ```
 
     **Your Task:**
-    Generate *only* the Python function code for `{name}` based *exactly* on the specification provided above. Ensure all Python syntax, especially indentation and the single, complete `try-except` block, is flawless. All paths should return a string.
+    Generate *only* the Python function code for `{name}` based *exactly* on the specification provided above. Ensure all Python syntax, especially indentation, is flawless. All paths should return a string.
     """
 
 
 class DynamicFunctionExecutor:
     def __init__(self):
         # Ensure GEMINI_API_KEY is used for the OpenAI client if that's the intended setup for compatibility layer
-        self.openai_client = openai.OpenAI(base_url=OPENAI_API_BASE_URL, api_key=GEMINI_API_KEY)
+        self.openai_client = openai.OpenAI(base_url=OPENAI_API_BASE_URL, api_key=GEMINI_API_KEY, max_retries=5)
         self.embeddings_client = GoogleGenerativeAIEmbeddings(model=LANGCHAIN_EMBEDDING_MODEL, google_api_key=GEMINI_API_KEY)
         parsed_url = urlparse(CHROMA_URL)
         self.chroma_client = chromadb.HttpClient(host=parsed_url.hostname, port=parsed_url.port)
@@ -271,7 +259,7 @@ class DynamicFunctionExecutor:
     def _ensure_function_creation_tool_definition_in_store(self):
         func_name = FUNCTION_CREATION_TOOL_DEFINITION['function']['name']
         try:
-            if not self.collection: 
+            if not self.collection:
                  self.debug_log(f"Collection is None in _ensure_function_creation_tool_definition_in_store. Re-initializing basic.")
                  self.collection = self.chroma_client.get_or_create_collection(name=FUNCTION_COLLECTION_NAME)
 

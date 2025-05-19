@@ -10,13 +10,13 @@
         #threejs-canvas.pointer-locked { cursor: none; }
 
         .ui-overlay { position: absolute; background-color: rgba(0,0,0,0.5); padding: 3px; box-sizing: border-box; z-index: 10; border-radius: 3px; }
-        
+
         #log-area { top: 5px; left: 5px; right: 5px; height: 12%; overflow-y: scroll; font-size: 0.7em; border: 1px solid #333;}
         #log-area p { margin: 1px 0; }
         #log-area h3 { display: none; }
 
         #status-area { top: calc(12% + 10px); left: 5px; width: 200px; height: auto; max-height: 15%; overflow-y: auto; font-size: 0.65em; border: 1px solid #333; padding: 5px;}
-        #status-area strong { color: #aaffaa; } 
+        #status-area strong { color: #aaffaa; }
 
         #action-area {
             position: absolute;
@@ -59,13 +59,13 @@
             border-radius: 4px;
             z-index: 100;
             font-size: 0.9em;
-            display: none; 
+            display: none;
         }
         #pointer-lock-action-hud .action-item-hud { padding: 4px; cursor: pointer; }
         #pointer-lock-action-hud .action-item-hud:hover { background-color: rgba(255,255,255,0.1); }
         #pointer-lock-action-hud .selected-action-hud { background-color: rgba(255,255,255,0.2); border: 1px solid white; }
         #pointer-lock-action-hud #crosshair {
-            position: fixed; 
+            position: fixed;
             top: 50%; left: 50%;
             width: 2px; height: 10px; background: white;
             transform: translate(-50%, -50%);
@@ -77,25 +77,25 @@
         }
 
         #debug-area { position: fixed; bottom: calc(18% + 10px); right: 5px; background: rgba(0,0,0,0.6); color: lime; font-family: monospace; font-size: 0.6em; max-height: 60px; width:100px; overflow-y: scroll; padding: 2px; opacity: 0.7; z-index: 100; border: 1px solid lime;}
-        
+
         .joystick-zone { position: absolute; width: 120px; height: 120px; z-index: 50; }
         #joystick-move-zone { bottom: 30px; left: 30px; }
         #joystick-rotate-zone { bottom: 30px; right: 30px; }
 
-        @media (max-width: 768px) { 
+        @media (max-width: 768px) {
            body { font-size: 14px; }
            #log-area { height: 10%; font-size: 0.65em;}
            #status-area { top: calc(10% + 10px); width: 180px; font-size: 0.6em; }
-           #action-area { height: 20%; font-size: 0.7em; } 
+           #action-area { height: 20%; font-size: 0.7em; }
            #action-buttons button { padding: 5px; font-size: 0.75em; }
            .joystick-zone { width: 100px; height: 100px; }
            #joystick-move-zone { bottom: 20px; left: 20px; }
            #joystick-rotate-zone { bottom: 20px; right: 20px; }
         }
-        @media (min-width: 769px) { 
+        @media (min-width: 769px) {
             #joystick-move-zone, #joystick-rotate-zone { display: none; }
         }
-        @media (hover: none) and (pointer: coarse) { 
+        @media (hover: none) and (pointer: coarse) {
             #joystick-move-zone, #joystick-rotate-zone { display: block !important; }
         }
     </style>
@@ -135,49 +135,50 @@
         const canvas = document.getElementById('threejs-canvas');
 
         let playerSoulId = null;
-        let currentGameState = {}; 
+        let currentGameState = {};
 
         let scene, camera, renderer, playerAvatar;
-        const landmarkObjects = {}; 
-        const temporary3DObjects = {}; 
-        let groundMeshes = {}; 
+        const landmarkObjects = {};
+        const temporary3DObjects = {};
+        let groundMeshes = {};
 
         let raycaster = new THREE.Raycaster();
-        let highlightedObject = null; 
-        let lastSelectedTargetLandmarkKey = null; 
+        let highlightedObject = null;
+        let lastSelectedTargetLandmarkKey = null;
 
         let lastFrameTime = performance.now();
         let previousPlayerPosition = new THREE.Vector3();
 
         let clientSideLastLocationId = null;
-        const keyStates = {}; 
-        let usingDesktopControls = false; 
+        const keyStates = {};
+        let usingDesktopControls = false;
 
-        const AUTO_SELECT_RADIUS_SQUARED = 2.5 * 2.5; 
-        const POINTER_LOCK_SELECT_RADIUS_SQUARED = 7.0 * 7.0; 
-        
-        let availablePointerLockActions = []; 
+        const AUTO_SELECT_RADIUS_SQUARED = 2.5 * 2.5;
+        const POINTER_LOCK_SELECT_RADIUS_SQUARED = 7.0 * 7.0;
+
+        let availablePointerLockActions = [];
         let selectedPointerLockActionIndex = -1;
 
-        let CAMERA_OFFSET = new THREE.Vector3(0, 2.5, 4.5);
+        let CAMERA_OFFSET = new THREE.Vector3(0, 2.5, 4.5); // Base offset
         let CAMERA_LOOK_AT_OFFSET_Y = 1.0;
         let PLAYER_MOVE_SPEED = 2.5;
-        let PLAYER_ROTATE_SPEED = 1.5; 
+        let PLAYER_ROTATE_SPEED = 1.5;
         let MOUSE_SENSITIVITY = 0.002;
         let UI_LOG_MAX_ENTRIES = 20;
 
         let cameraLookAtTarget = new THREE.Vector3();
-        let playerPitch = 0; 
-        const MIN_PITCH = -Math.PI / 2 + 0.2; 
-        const MAX_PITCH = Math.PI / 2 - 0.2;  
+        let desiredCameraPosition = new THREE.Vector3(); // To avoid re-creation in animate loop
+        let playerPitch = 0;
+        const MIN_PITCH = -Math.PI / 2 + 0.2;
+        const MAX_PITCH = Math.PI / 2 - 0.2;
 
         let moveJoystick = null;
         let rotateJoystick = null;
-        let moveVector = { x: 0, y: 0 }; 
-        let rotateVector = { x: 0, y: 0 }; 
+        let moveVector = { x: 0, y: 0 };
+        let rotateVector = { x: 0, y: 0 };
 
         let lastWheelTime = 0;
-        const WHEEL_COOLDOWN_MS = 100;
+        const WHEEL_COOLDOWN_MS = 250; // Increased cooldown for touchpad scrolling
 
         function applyClientSettings(settings) {
             if (!settings) return;
@@ -199,26 +200,26 @@
 
         function initThree() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x1a1a1a); 
+            scene.background = new THREE.Color(0x1a1a1a);
 
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            
+
             renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true; 
+            renderer.shadowMap.enabled = true;
 
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
             scene.add(ambientLight);
             const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
             directionalLight.position.set(5, 10, 7);
-            directionalLight.castShadow = true; 
+            directionalLight.castShadow = true;
             scene.add(directionalLight);
 
-            const playerGeometry = new THREE.CylinderGeometry(0.25, 0.25, 1, 16); 
+            const playerGeometry = new THREE.CylinderGeometry(0.25, 0.25, 1, 16);
             const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00dd00 });
             playerAvatar = new THREE.Mesh(playerGeometry, playerMaterial);
-            playerAvatar.position.y = 0.5; 
-            playerAvatar.castShadow = true; 
+            playerAvatar.position.y = 0.5;
+            playerAvatar.castShadow = true;
             scene.add(playerAvatar);
             previousPlayerPosition.copy(playerAvatar.position);
 
@@ -233,7 +234,7 @@
             groundMeshes['default_box_platform'].receiveShadow = true;
             groundMeshes['default_box_platform'].name = "boxPlatform";
             scene.add(groundMeshes['default_box_platform']);
-            
+
             Object.values(groundMeshes).forEach(mesh => mesh.visible = false);
 
 
@@ -296,7 +297,7 @@
                     if (document.pointerLockElement !== canvas) {
                         canvas.requestPointerLock().catch(err => {
                             addDebugMessage("Pointer lock failed: " + err.message + ". Fallback click.");
-                            handleInteractionClick(event); 
+                            handleInteractionClick(event);
                         });
                     }
                 } else {
@@ -308,7 +309,7 @@
                 if (usingDesktopControls) {
                     if (document.pointerLockElement === canvas) {
                         addDebugMessage("Pointer locked"); pointerLockActionHUD.style.display = 'block';
-                        lastSelectedTargetLandmarkKey = null; updateContextualActionsDisplay(); 
+                        lastSelectedTargetLandmarkKey = null; updateContextualActionsDisplay();
                     } else {
                         addDebugMessage("Pointer unlocked"); pointerLockActionHUD.style.display = 'none';
                         for (const key in keyStates) keyStates[key] = false;
@@ -318,11 +319,11 @@
             document.addEventListener('pointerlockerror', () => { if(usingDesktopControls) addDebugMessage("Pointer lock error."); });
             document.addEventListener('keydown', (event) => { if (usingDesktopControls) { keyStates[event.key.toLowerCase()] = true; if (document.pointerLockElement === canvas && (event.key === 'Enter' || event.key.toLowerCase() === 'e')) { executeSelectedPointerLockAction(); event.preventDefault(); } } });
             document.addEventListener('keyup', (event) => { if (usingDesktopControls) { keyStates[event.key.toLowerCase()] = false; } });
-            document.addEventListener('mousemove', (event) => { if (usingDesktopControls && document.pointerLockElement === canvas && playerAvatar) { playerAvatar.rotation.y -= event.movementX * MOUSE_SENSITIVITY; playerPitch -= event.movementY * MOUSE_SENSITIVITY; playerPitch = Math.max(MIN_PITCH, Math.min(MAX_PITCH, playerPitch)); } });
+            document.addEventListener('mousemove', (event) => { if (usingDesktopControls && document.pointerLockElement === canvas && playerAvatar) { playerAvatar.rotation.y -= event.movementX * MOUSE_SENSITIVITY; playerPitch += event.movementY * MOUSE_SENSITIVITY; playerPitch = Math.max(MIN_PITCH, Math.min(MAX_PITCH, playerPitch)); } });
             canvas.addEventListener('wheel', (event) => { if (usingDesktopControls && document.pointerLockElement === canvas && availablePointerLockActions.length > 0) { event.preventDefault(); const currentTime = performance.now(); if (currentTime - lastWheelTime > WHEEL_COOLDOWN_MS) { selectedPointerLockActionIndex -= Math.sign(event.deltaY); if (selectedPointerLockActionIndex < 0) selectedPointerLockActionIndex = availablePointerLockActions.length - 1; if (selectedPointerLockActionIndex >= availablePointerLockActions.length) selectedPointerLockActionIndex = 0; updatePointerLockHUD(); lastWheelTime = currentTime; } } });
         }
-        
-        function handleInteractionClick(event) { 
+
+        function handleInteractionClick(event) {
             if (!currentGameState || !currentGameState.currentLocation || !playerAvatar || (usingDesktopControls && document.pointerLockElement === canvas)) return;
             const rect = canvas.getBoundingClientRect(); const mouse = new THREE.Vector2();
             mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1; mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -337,7 +338,7 @@
                 if (lastSelectedTargetLandmarkKey && landmarkObjects[lastSelectedTargetLandmarkKey]) {
                      try { landmarkObjects[lastSelectedTargetLandmarkKey].material.emissive.setHex(0x000000); } catch(e){}
                 } else if (highlightedObject) { try { highlightedObject.material.emissive.setHex(0x000000); } catch(e){} }
-                
+
                 lastSelectedTargetLandmarkKey = clickedTargetKey;
                 highlightedObject = lastSelectedTargetLandmarkKey ? landmarkObjects[lastSelectedTargetLandmarkKey] : null;
                 if (highlightedObject) { try {highlightedObject.material.emissive.setHex(0x555555); } catch(e){} }
@@ -358,23 +359,33 @@
                 if (usingDesktopControls && document.pointerLockElement === canvas) {
                     if (keyStates['w']) playerAvatar.position.addScaledVector(forward, moveSpeed); if (keyStates['s']) playerAvatar.position.addScaledVector(forward, -moveSpeed);
                     if (keyStates['a']) playerAvatar.position.addScaledVector(right, -moveSpeed); if (keyStates['d']) playerAvatar.position.addScaledVector(right, moveSpeed);
-                } else if (!usingDesktopControls && moveJoystick) { 
+                } else if (!usingDesktopControls && moveJoystick) {
                     if (moveVector.y !== 0) playerAvatar.position.addScaledVector(forward.clone().multiplyScalar(moveVector.y > 0 ? 1 : -1), Math.abs(moveVector.y) * moveSpeed);
                     if (moveVector.x !== 0) playerAvatar.position.addScaledVector(right.clone().multiplyScalar(moveVector.x > 0 ? 1 : -1), Math.abs(moveVector.x) * moveSpeed);
                     if (rotateVector.x !== 0) playerAvatar.rotation.y -= rotateVector.x * rotateSpeed * 2;
                     if (rotateVector.y !== 0) { playerPitch -= rotateVector.y * rotateSpeed * 1.5; playerPitch = Math.max(MIN_PITCH, Math.min(MAX_PITCH, playerPitch)); }
                 }
-                
-                const desiredCameraPosition = playerAvatar.position.clone().add(new THREE.Vector3(0, CAMERA_OFFSET.y, 0));
-                const offsetRotated = CAMERA_OFFSET.clone().applyAxisAngle(new THREE.Vector3(0,1,0), playerAvatar.rotation.y);
-                desiredCameraPosition.add(new THREE.Vector3(offsetRotated.x, 0, offsetRotated.z));
-                camera.position.lerp(desiredCameraPosition, 0.1); 
-                cameraLookAtTarget.copy(playerAvatar.position).add(new THREE.Vector3(0, CAMERA_LOOK_AT_OFFSET_Y, 0)); 
-                camera.lookAt(cameraLookAtTarget); camera.rotation.x += playerPitch; 
 
-                let currentFrameSelectedTargetKey = null; 
-                if (usingDesktopControls && document.pointerLockElement === canvas && camera) { 
-                    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera); 
+                // Camera Logic Update
+                cameraLookAtTarget.copy(playerAvatar.position).add(new THREE.Vector3(0, CAMERA_LOOK_AT_OFFSET_Y, 0));
+
+                const camDist = CAMERA_OFFSET.z; // Use the Z component of CAMERA_OFFSET for distance
+                const horizontalDist = camDist * Math.cos(playerPitch);
+                const verticalDist = camDist * Math.sin(playerPitch);
+
+                // Calculate camera position based on player's yaw (playerAvatar.rotation.y) and pitch (playerPitch)
+                // MODIFIED: Changed signs from subtraction to addition for X and Z to position camera behind player
+                desiredCameraPosition.x = cameraLookAtTarget.x + horizontalDist * Math.sin(playerAvatar.rotation.y);
+                desiredCameraPosition.y = cameraLookAtTarget.y + verticalDist + (CAMERA_OFFSET.y - CAMERA_LOOK_AT_OFFSET_Y);
+                desiredCameraPosition.z = cameraLookAtTarget.z + horizontalDist * Math.cos(playerAvatar.rotation.y);
+
+                camera.position.lerp(desiredCameraPosition, 0.1); // Smooth camera movement
+                camera.lookAt(cameraLookAtTarget);
+
+
+                let currentFrameSelectedTargetKey = null;
+                if (usingDesktopControls && document.pointerLockElement === canvas && camera) {
+                    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
                     const interactableMeshes = Object.values(landmarkObjects).filter(m => m.userData.isInteractable !== false);
                     const intersects = raycaster.intersectObjects(interactableMeshes, false);
                     if (intersects.length > 0) {
@@ -383,10 +394,10 @@
                             currentFrameSelectedTargetKey = closestIntersected.userData.landmarkKey;
                         }
                     }
-                } else if (!usingDesktopControls || document.pointerLockElement !== canvas) { 
-                    if (lastSelectedTargetLandmarkKey && landmarkObjects[lastSelectedTargetLandmarkKey]) { 
+                } else if (!usingDesktopControls || document.pointerLockElement !== canvas) {
+                    if (lastSelectedTargetLandmarkKey && landmarkObjects[lastSelectedTargetLandmarkKey]) {
                         currentFrameSelectedTargetKey = lastSelectedTargetLandmarkKey;
-                    } else if (currentGameState.currentLocation && currentGameState.currentLocation.landmarks) { 
+                    } else if (currentGameState.currentLocation && currentGameState.currentLocation.landmarks) {
                         let closestDistSq = AUTO_SELECT_RADIUS_SQUARED; let potentialTargetKey = null;
                         for (const lmKey in landmarkObjects) {
                             const landmarkMesh = landmarkObjects[lmKey];
@@ -403,11 +414,11 @@
                     if (lastSelectedTargetLandmarkKey && landmarkObjects[lastSelectedTargetLandmarkKey]) {
                         try { landmarkObjects[lastSelectedTargetLandmarkKey].material.emissive.setHex(0x000000); } catch(e){}
                     } else if (highlightedObject) { try { highlightedObject.material.emissive.setHex(0x000000); } catch(e){} }
-                    
+
                     lastSelectedTargetLandmarkKey = currentFrameSelectedTargetKey;
                     highlightedObject = (lastSelectedTargetLandmarkKey && landmarkObjects[lastSelectedTargetLandmarkKey]) ? landmarkObjects[lastSelectedTargetLandmarkKey] : null;
                     if (highlightedObject) { try { highlightedObject.material.emissive.setHex( (usingDesktopControls && document.pointerLockElement === canvas) ? 0x222222 : 0x555555); } catch(e){} }
-                    updateContextualActionsDisplay(); 
+                    updateContextualActionsDisplay();
                 }
                 if (!playerAvatar.position.equals(previousPlayerPosition)) { previousPlayerPosition.copy(playerAvatar.position); }
             }
@@ -446,8 +457,9 @@
             const p = document.createElement('p'); p.textContent = message;
             if (type === 'error') p.style.color = '#ffaaaa'; if (type === 'success') p.style.color = '#aaffaa';
             if (type === 'event') { p.style.color = '#aaaaff'; p.style.fontStyle = 'italic';}
-            logContent.insertBefore(p, logContent.firstChild); 
-            while (logContent.children.length > UI_LOG_MAX_ENTRIES) { logContent.removeChild(logContent.lastChild); } 
+            logContent.insertBefore(p, logContent.firstChild);
+            while (logContent.children.length > UI_LOG_MAX_ENTRIES) { logContent.removeChild(logContent.lastChild); }
+            logArea.scrollTop = 0;
         }
         function addDebugMessage(message) {
             const d = document.createElement('div'); d.textContent = message;
@@ -456,7 +468,7 @@
         }
 
         function setupLocationVisuals(locationData) {
-            Object.values(groundMeshes).forEach(mesh => mesh.visible = false); 
+            Object.values(groundMeshes).forEach(mesh => mesh.visible = false);
             if (!locationData || !locationData.client_visual_config) {
                 addDebugMessage("No visual config for location, using fallback ground.");
                 const fallbackPlane = groundMeshes['default_plane'];
@@ -480,22 +492,29 @@
                     plane.visible = true;
                     plane.position.copy(center);
                     const size = groundConfig.size_xz || [20,20];
-                    plane.scale.set(size[0], size[1], 1); 
+                    plane.scale.set(size[0], size[1], 1);
                     plane.material.color.setHex(groundColor);
                 }
             } else if (config.ground_type_key === 'split_chasm_platforms') {
-                const playerPlatformMesh = groundMeshes['default_box_platform']; // Re-use or create specific if needed
-                const keyholePlatformMesh = groundMeshes['default_box_platform'].clone(); // Clone for the second platform
+                const playerPlatformMesh = groundMeshes['default_box_platform'];
+                // Remove old temporary keyhole platform mesh if it exists
+                if(groundMeshes['keyhole_platform_temp']) {
+                    scene.remove(groundMeshes['keyhole_platform_temp']);
+                    groundMeshes['keyhole_platform_temp'].geometry?.dispose();
+                    groundMeshes['keyhole_platform_temp'].material?.dispose();
+                    delete groundMeshes['keyhole_platform_temp'];
+                }
+                const keyholePlatformMesh = groundMeshes['default_box_platform'].clone();
                 keyholePlatformMesh.receiveShadow = true;
-                scene.add(keyholePlatformMesh); // Ensure cloned mesh is added
-                groundMeshes['keyhole_platform_temp'] = keyholePlatformMesh; // Track it for later removal if loc changes
+                scene.add(keyholePlatformMesh);
+                groundMeshes['keyhole_platform_temp'] = keyholePlatformMesh;
 
                 if(playerPlatformMesh && keyholePlatformMesh) {
                     playerPlatformMesh.visible = true; keyholePlatformMesh.visible = true;
-                    
+
                     const pSize = groundConfig.player_platform_size_xyz || [5,0.2,4];
                     playerPlatformMesh.scale.fromArray(pSize);
-                    playerPlatformMesh.position.set(center.x, center.y - pSize[1]/2, center.z); 
+                    playerPlatformMesh.position.set(center.x, center.y - pSize[1]/2, center.z);
                     playerPlatformMesh.material.color.setHex(groundColor);
 
                     const kSize = groundConfig.keyhole_platform_size_xyz || [3,0.2,3];
@@ -505,9 +524,8 @@
                     keyholePlatformMesh.material.color.setHex(groundColor);
                 }
             } else if (config.ground_type_key === 'none') {
-                // No ground, often for void or abstract locations
-                 scene.background = new THREE.Color(groundColor); // Use ground color for void background
-            } else { 
+                 scene.background = new THREE.Color(groundColor);
+            } else {
                  const fallbackPlane = groundMeshes['default_plane'];
                  if(fallbackPlane){
                     fallbackPlane.visible = true; fallbackPlane.position.copy(center);
@@ -517,16 +535,16 @@
         }
 
         function createGeometryFromConfig(geomConfig) {
-            if (!geomConfig || !geomConfig.type) return new THREE.SphereGeometry(0.1, 8, 6); // Default tiny sphere
+            if (!geomConfig || !geomConfig.type) return new THREE.SphereGeometry(0.1, 8, 6);
 
             const type = geomConfig.type.toLowerCase();
             const params = geomConfig.parameters || {};
-            const dims = geomConfig.dimensions || [0.2, 0.2, 0.2]; // Default small box
-            const radius = geomConfig.radius || 0.2; // Default small sphere radius
-            const segments = geomConfig.segments || [12, 8]; // Default sphere segments
+            const dims = geomConfig.dimensions || [0.2, 0.2, 0.2];
+            const radius = geomConfig.radius || 0.2;
+            const segments = geomConfig.segments || [12, 8];
 
             switch(type) {
-                case 'box': return new THREE.BoxGeometry(dims[0] || 0.2, dims[1] || 0.2, dims[2] || 0.2);
+                case 'box': return new THREE.BoxGeometry(dims[0] || params.width || 0.2, dims[1] || params.height || 0.2, dims[2] || params.depth || 0.2);
                 case 'sphere': return new THREE.SphereGeometry(radius, segments[0] || 12, segments[1] || 8);
                 case 'cylinder': return new THREE.CylinderGeometry(params.radiusTop || radius, params.radiusBottom || radius, params.height || dims[1] || 0.5, params.radialSegments || segments[0] || 12);
                 case 'plane': return new THREE.PlaneGeometry(dims[0] || 1, dims[1] || 1);
@@ -536,7 +554,7 @@
 
         function updateLandmarks3D(locationData, envObjectsInLocation, allPuzzleStates) {
             if (highlightedObject) { try { highlightedObject.material.emissive.setHex(0x000000); } catch (e) {} }
-            highlightedObject = null; 
+            highlightedObject = null;
 
             for (const key in landmarkObjects) {
                 if(landmarkObjects[key]) { scene.remove(landmarkObjects[key]); landmarkObjects[key].geometry?.dispose(); landmarkObjects[key].material?.dispose(); }
@@ -555,8 +573,14 @@
                 const absPos = relPos.clone().add(locCenter);
 
                 const landmarkGeo = createGeometryFromConfig(visConfig.geometry_config);
-                
-                let currentHexColor = parseInt(((visConfig.material_config && visConfig.material_config.base_color_hex) || "#aaaaaa").replace("#",""), 16);
+
+                let currentBaseColorHex = (visConfig.material_config && visConfig.material_config.base_color_hex) || "#aaaaaa";
+                let currentEmissiveColorHex = (visConfig.material_config && visConfig.material_config.emissive_color_hex) || "#000000";
+                let currentEmissiveIntensity = (visConfig.material_config && visConfig.material_config.emissive_intensity) || 0;
+                let isTransparent = (visConfig.material_config && visConfig.material_config.transparent) || false;
+                let currentOpacity = (visConfig.material_config && visConfig.material_config.opacity) || 1.0;
+
+
                 let isInteractable = visConfig.landmark_interaction_type_key !== 'door_inert';
 
                 const targetEnvId = visConfig.targetable_as_env_object_id;
@@ -564,38 +588,74 @@
                     const linkedEnvObject = envObjectsInLocation.find(obj => obj.id === targetEnvId);
                     if (linkedEnvObject && linkedEnvObject.details && linkedEnvObject.details.client_visual_update) {
                         const visualUpdate = linkedEnvObject.details.client_visual_update;
-                        if (visualUpdate.new_color_hex) currentHexColor = parseInt(visualUpdate.new_color_hex.replace("#",""), 16);
+                        if (visualUpdate.new_color_hex) currentBaseColorHex = visualUpdate.new_color_hex;
+                        if (visualUpdate.emissive_color_hex) currentEmissiveColorHex = visualUpdate.emissive_color_hex;
+                        if (visualUpdate.emissive_intensity !== undefined) currentEmissiveIntensity = visualUpdate.emissive_intensity;
                     }
                 }
-                
-                // Generalized visual state updates based on puzzle states or other landmark properties
-                // Example: if a landmark is an exit and its corresponding puzzle is complete, change color
-                if (visConfig.is_exit_to_location_id && visConfig.linked_puzzle_id_for_open_state) {
+
+                // Handle open state visual changes (like the sealed door becoming transparent)
+                 if (visConfig.is_exit_to_location_id && visConfig.linked_puzzle_id_for_open_state) {
                     const puzzle = allPuzzleStates?.[visConfig.linked_puzzle_id_for_open_state];
-                    if (puzzle && puzzle.is_complete) { // Assuming 'is_complete' implies open
-                         currentHexColor = parseInt(((visConfig.material_config && visConfig.material_config.open_color_hex) || "#77cc77").replace("#",""), 16);
+                    if (puzzle && (puzzle.is_complete || puzzle.is_open) ) {
+                         // Check if the open state config has specific visual overrides
+                         if (visConfig.material_config && visConfig.material_config.open_color_hex) {
+                            currentBaseColorHex = visConfig.material_config.open_color_hex;
+                         }
+                         if (visConfig.material_config && visConfig.material_config.open_emissive_color_hex) {
+                            currentEmissiveColorHex = visConfig.material_config.open_emissive_color_hex;
+                            currentEmissiveIntensity = visConfig.material_config.open_emissive_intensity !== undefined ? visConfig.material_config.open_emissive_intensity : currentEmissiveIntensity;
+                         }
+                         if (visConfig.material_config && visConfig.material_config.open_transparent !== undefined) {
+                             isTransparent = visConfig.material_config.open_transparent;
+                             currentOpacity = visConfig.material_config.open_opacity !== undefined ? visConfig.material_config.open_opacity : currentOpacity;
+                         } else if (visConfig.material_config && visConfig.material_config.base_color_hex === '#77CC77') { // Check if it was directly set by server handler
+                             // If the server handler set the base color to the 'open' color, assume it's open
+                             // This is a fallback/heuristic based on the current server logic
+                             isTransparent = true; // Assume open means transparent
+                             currentOpacity = 0.0; // Assume open means invisible
+                         }
                     }
                 }
-                // Example for door_inert type that changes based on a puzzle
                  if (visConfig.landmark_interaction_type_key === 'door_inert' && visConfig.linked_puzzle_id_for_open_state) {
                     const puzzle = allPuzzleStates?.[visConfig.linked_puzzle_id_for_open_state];
-                    if (puzzle && puzzle.is_open) { // Assuming 'is_open' property
-                         currentHexColor = parseInt(((visConfig.material_config && visConfig.material_config.open_color_hex) || "#90ee90").replace("#",""), 16);
+                    if (puzzle && puzzle.is_open) {
+                         if (visConfig.material_config && visConfig.material_config.open_color_hex) {
+                            currentBaseColorHex = visConfig.material_config.open_color_hex;
+                         } else if (visConfig.material_config && visConfig.material_config.base_color_hex === '#90EE90') {
+                            currentBaseColorHex = visConfig.material_config.base_color_hex;
+                         }
+                         if (visConfig.material_config && visConfig.material_config.open_transparent !== undefined) {
+                             isTransparent = visConfig.material_config.open_transparent;
+                             currentOpacity = visConfig.material_config.open_opacity !== undefined ? visConfig.material_config.open_opacity : currentOpacity;
+                         }
                     }
                 }
 
 
-                const landmarkMat = new THREE.MeshStandardMaterial({ color: currentHexColor, emissive: 0x000000 });
+                const landmarkMat = new THREE.MeshStandardMaterial({
+                    color: parseInt(currentBaseColorHex.replace("#",""), 16),
+                    emissive: parseInt(currentEmissiveColorHex.replace("#",""), 16),
+                    emissiveIntensity: currentEmissiveIntensity,
+                    transparent: isTransparent,
+                    opacity: currentOpacity
+                });
+                 if (currentEmissiveIntensity > 0 || isTransparent) {
+                     landmarkMat.toneMapped = false; // For emissive to glow properly and transparency sorting
+                 }
+
+
                 const landmarkMesh = new THREE.Mesh(landmarkGeo, landmarkMat);
                 landmarkMesh.position.copy(absPos);
-                landmarkMesh.userData = { 
-                    landmarkKey: landmarkKey, 
-                    name: landmarkData.name || landmarkKey, 
-                    type: 'landmark', 
+                landmarkMesh.userData = {
+                    landmarkKey: landmarkKey,
+                    name: landmarkData.name || landmarkKey,
+                    type: 'landmark',
                     isInteractable: isInteractable,
-                    targetEnvId: targetEnvId, 
-                    isExitTo: visConfig.is_exit_to_location_id, 
-                    interactionTypeKey: visConfig.landmark_interaction_type_key 
+                    targetEnvId: targetEnvId,
+                    isExitTo: visConfig.is_exit_to_location_id,
+                    interactionTypeKey: visConfig.landmark_interaction_type_key || visConfig.interaction_type, // Added fallback for interaction_type
+                    client_visual_config: visConfig // Store full visConfig for action checks
                 };
                 scene.add(landmarkMesh);
                 landmarkObjects[landmarkKey] = landmarkMesh;
@@ -616,16 +676,16 @@
             const locCenter = new THREE.Vector3().fromArray(currentLocationData.client_visual_config.center_position_xyz || [0,0,0]);
 
             tempObjectsData.forEach(obj => {
-                if (obj.location_id !== currentLocationData.id || obj.duration <= 0 || temporary3DObjects[obj.id]) return; 
+                if (obj.location_id !== currentLocationData.id || obj.duration <= 0 || temporary3DObjects[obj.id]) return;
                 const visConfig = obj.client_visual_config || {};
                 const geomConfig = visConfig.geometry_config || {};
                 const matConfig = visConfig.material_config || {};
 
 
-                if (geomConfig.type === 'bridge_between_landmarks') { // Specific type for bridges
+                if (geomConfig.type === 'bridge_between_landmarks') {
                     const fromLandmarkData = currentLocationData.landmarks[obj.from_landmark_id];
-                    const toLandmarkData = currentLocationData.landmarks[obj.to_landmark_id]; // Changed from to_landmark_id
-                    
+                    const toLandmarkData = currentLocationData.landmarks[obj.to_landmark_id];
+
                     if (!fromLandmarkData || !toLandmarkData || !fromLandmarkData.client_visual_config || !toLandmarkData.client_visual_config) {
                         addDebugMessage(`Bridge failed: missing landmark data for ${obj.from_landmark_id} or ${obj.to_landmark_id}`);
                         return;
@@ -635,23 +695,29 @@
                     const toPosRel = new THREE.Vector3().fromArray(toLandmarkData.client_visual_config.relative_position_xyz);
                     const fromPosAbs = fromPosRel.clone().add(locCenter);
                     const toPosAbs = toPosRel.clone().add(locCenter);
-                    
-                    const yOffset = geomConfig.parameters?.y_offset || 0.1; 
+
+                    const yOffset = geomConfig.parameters?.y_offset || 0.1;
                     fromPosAbs.y += yOffset; toPosAbs.y += yOffset;
 
                     const distance = fromPosAbs.distanceTo(toPosAbs);
-                    if (distance < 0.01) return; 
-                    
-                    const bridgeMaterial = new THREE.MeshBasicMaterial({ 
-                        color: parseInt((matConfig.base_color_hex || "#33ccff").replace("#",""), 16), 
-                        transparent: matConfig.transparent !== undefined ? matConfig.transparent : true, 
-                        opacity: matConfig.opacity || 0.6, 
-                        side: THREE.DoubleSide 
+                    if (distance < 0.01) return;
+
+                    const bridgeMaterial = new THREE.MeshStandardMaterial({ // Use StandardMaterial for emissive
+                        color: parseInt((matConfig.base_color_hex || "#33ccff").replace("#",""), 16),
+                        transparent: matConfig.transparent !== undefined ? matConfig.transparent : true,
+                        opacity: matConfig.opacity || 0.6,
+                        side: THREE.DoubleSide,
+                        emissive: parseInt((matConfig.emissive_color_hex || "#000000").replace("#",""), 16),
+                        emissiveIntensity: matConfig.emissive_intensity || 0
                     });
+                     if (matConfig.emissive_intensity > 0 || (matConfig.transparent !== undefined ? matConfig.transparent : true)) {
+                        bridgeMaterial.toneMapped = false;
+                     }
+
                     const bridgeWidth = geomConfig.parameters?.width || 0.6;
                     const bridgeHeight = geomConfig.parameters?.height || 0.08;
-                    const bridgeGeometry = new THREE.BoxGeometry(bridgeWidth, bridgeHeight, distance); 
-                    
+                    const bridgeGeometry = new THREE.BoxGeometry(bridgeWidth, bridgeHeight, distance);
+
                     const bridgeMesh = new THREE.Mesh(bridgeGeometry, bridgeMaterial);
                     bridgeMesh.position.copy(fromPosAbs).lerp(toPosAbs, 0.5);
                     const direction = new THREE.Vector3().subVectors(toPosAbs, fromPosAbs).normalize();
@@ -660,16 +726,52 @@
 
                     scene.add(bridgeMesh);
                     temporary3DObjects[obj.id] = bridgeMesh;
-                } else if (geomConfig.type) { // Generic temporary object from geomConfig
+                } else if (geomConfig.type) {
                      const tempGeo = createGeometryFromConfig(geomConfig);
                      const tempMat = new THREE.MeshStandardMaterial({
                          color: parseInt((matConfig.base_color_hex || "#ffaa00").replace("#",""), 16),
                          transparent: matConfig.transparent || false,
-                         opacity: matConfig.opacity || 1.0
+                         opacity: matConfig.opacity || 1.0,
+                         emissive: parseInt((matConfig.emissive_color_hex || "#000000").replace("#",""), 16),
+                         emissiveIntensity: matConfig.emissive_intensity || 0
                      });
+                     if (matConfig.emissive_intensity > 0 || matConfig.transparent) {
+                        tempMat.toneMapped = false; // For emissive to glow properly without tone mapping dimming it
+                     }
                      const tempMesh = new THREE.Mesh(tempGeo, tempMat);
-                     const relPos = new THREE.Vector3().fromArray(visConfig.relative_position_xyz || [0,0,0]);
-                     tempMesh.position.copy(relPos.clone().add(locCenter));
+
+                     let fromPosAbs = playerAvatar.position.clone(); // Default 'player_current_pos'
+                     if(obj.from_landmark_id !== 'player_current_pos' && currentLocationData.landmarks[obj.from_landmark_id]?.client_visual_config?.relative_position_xyz) {
+                        fromPosAbs.fromArray(currentLocationData.landmarks[obj.from_landmark_id].client_visual_config.relative_position_xyz).add(locCenter);
+                     }
+
+                     let toPosAbs = new THREE.Vector3();
+                     if(currentLocationData.landmarks[obj.to_landmark_id]?.client_visual_config?.relative_position_xyz) {
+                        toPosAbs.fromArray(currentLocationData.landmarks[obj.to_landmark_id].client_visual_config.relative_position_xyz).add(locCenter);
+                     } else {
+                        addDebugMessage(`Temp obj ${obj.id} target landmark ${obj.to_landmark_id} not found for positioning.`);
+                        toPosAbs.copy(fromPosAbs).add(new THREE.Vector3(0,0,-2)); // Default offset if target missing
+                     }
+
+                     const distance = fromPosAbs.distanceTo(toPosAbs);
+                     tempMesh.position.copy(fromPosAbs).lerp(toPosAbs, 0.5); // Center it
+
+                     if (geomConfig.type === 'box' && geomConfig.parameters) { // Scale Z for box "bridge"
+                        // Assuming the box depth parameter is the intended length axis
+                        const boxDepth = geomConfig.parameters.depth || 1.0;
+                        if (boxDepth > 0.001) { // Avoid division by zero
+                            tempMesh.scale.z = distance / boxDepth;
+                        } else {
+                             tempMesh.scale.z = distance; // Fallback if depth is zero or very small
+                        }
+                     }
+
+                     const direction = new THREE.Vector3().subVectors(toPosAbs, fromPosAbs).normalize();
+                     if (direction.lengthSq() > 0.001) { // Avoid issues with zero vector
+                        const alignQuaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), direction);
+                        tempMesh.quaternion.copy(alignQuaternion);
+                     }
+
                      scene.add(tempMesh);
                      temporary3DObjects[obj.id] = tempMesh;
                 }
@@ -679,7 +781,7 @@
 
         function updateStatus(state) {
               if (!state || !state.playerSoul ) { statusArea.innerHTML = "Connecting..."; return; }
-              currentGameState = state; 
+              currentGameState = state;
               if (state.worldProperties && state.worldProperties.client_default_settings) {
                   applyClientSettings(state.worldProperties.client_default_settings);
               }
@@ -688,16 +790,18 @@
               const uiSpecialNames = worldProps.ui_special_location_names || {};
 
 
-              let currentLocationDisplay = state.currentLocation; 
-              if (!currentLocationDisplay || state.playerSoul.locationId === "LIMBO_VOID") { // Still use LIMBO_VOID as internal ID
-                  currentLocationDisplay = { 
-                      id: "LIMBO_VOID", 
-                      name: uiSpecialNames.limbo_void || "The Void", 
-                      description: uiMessages.limbo_void_description || "Adrift...", 
-                      client_visual_config: worldProps.void_visual_config || {center_position_xyz: [0,-50,-100], ground_type_key: 'none', ground_config: {color_hex: '#100510'}} 
+              let currentLocationDisplay = state.currentLocation;
+              if (!currentLocationDisplay || state.playerSoul.locationId === "LIMBO_VOID") {
+                  currentLocationDisplay = {
+                      id: "LIMBO_VOID",
+                      name: uiSpecialNames.limbo_void || "The Void",
+                      description: uiMessages.limbo_void_description || "Adrift...",
+                      exits: {},
+                      landmarks: {},
+                      client_visual_config: worldProps.void_visual_config || {center_position_xyz: [0,-50,-100], ground_type_key: 'none', ground_config: {color_hex: '#100510'}}
                     };
               }
-              
+
               let statusHTML = `<strong>${state.playerSoul.name}</strong> @ ${currentLocationDisplay.name}<br>`;
               if (state.inventory && state.inventory.length > 0) {
                 statusHTML += `Inv: ${state.inventory.map(a => a.name.length > 15 ? a.name.substring(0,12)+"..." : a.name ).join(', ') }`;
@@ -710,60 +814,78 @@
                       addDebugMessage(`Loc change: ${clientSideLastLocationId} -> ${newLocationId}`);
                       const locVisConfig = currentLocationDisplay.client_visual_config;
                       let targetPlayerPos = new THREE.Vector3().fromArray(locVisConfig?.center_position_xyz || [0,0,0]);
-                      playerAvatar.position.copy(targetPlayerPos); playerAvatar.position.y = 0.5; 
+                      playerAvatar.position.copy(targetPlayerPos); playerAvatar.position.y = 0.5;
                       previousPlayerPosition.copy(playerAvatar.position);
-                      playerAvatar.rotation.y = 0; playerPitch = 0; 
+                      playerAvatar.rotation.y = 0; playerPitch = 0;
                       clientSideLastLocationId = newLocationId;
-                      
-                      if(groundMeshes['keyhole_platform_temp']) { // Clean up cloned platform if it exists
-                        scene.remove(groundMeshes['keyhole_platform_temp']);
-                        groundMeshes['keyhole_platform_temp'].geometry?.dispose();
-                        groundMeshes['keyhole_platform_temp'].material?.dispose();
-                        delete groundMeshes['keyhole_platform_temp'];
+
+                      // Remove all temporary objects when changing location
+                      for (const objId in temporary3DObjects) {
+                           if(temporary3DObjects[objId]) { scene.remove(temporary3DObjects[objId]); temporary3DObjects[objId].geometry?.dispose(); temporary3DObjects[objId].material?.dispose(); }
+                           delete temporary3DObjects[objId];
                       }
+
                       setupLocationVisuals(currentLocationDisplay);
                       updateLandmarks3D(currentLocationDisplay, state.environmentObjectsInLocation, state.allPuzzleStates);
-                      lastSelectedTargetLandmarkKey = null; 
-                  } else { 
+                      lastSelectedTargetLandmarkKey = null;
+                  } else {
                      updateLandmarks3D(currentLocationDisplay, state.environmentObjectsInLocation, state.allPuzzleStates);
                   }
-                  updateTemporaryObjects3D(state.activeTemporaryObjects, currentLocationDisplay); 
+                  updateTemporaryObjects3D(state.activeTemporaryObjects, currentLocationDisplay);
               }
         }
         function updateLog(logEntries) {
               if (!logEntries) return;
-              logEntries.slice().reverse().forEach(msg => { 
+              logEntries.slice().reverse().forEach(msg => {
                 const existing = Array.from(logContent.querySelectorAll('p')).find(p => p.textContent === msg);
-                if(!existing) addLogMessage(msg); 
+                if(!existing) addLogMessage(msg);
               });
         }
 
-        function updateContextualActionsDisplay() { 
+        function updateContextualActionsDisplay() {
             actionButtons.innerHTML = ''; availablePointerLockActions = []; selectedPointerLockActionIndex = -1;
             const playerSoul = currentGameState.playerSoul; const currentLocation = currentGameState.currentLocation;
             const inventory = currentGameState.inventory; const allPuzzles = currentGameState.allPuzzleStates;
 
-            if (!playerSoul || !currentLocation || !currentLocation.landmarks) {
-                actionButtons.innerHTML = '<p>...</p>'; updatePointerLockHUD(); return;
+            if (lastSelectedTargetLandmarkKey && currentLocation && currentLocation.landmarks && currentLocation.landmarks[lastSelectedTargetLandmarkKey]) {
+                const debugSelectedLandmarkData = currentLocation.landmarks[lastSelectedTargetLandmarkKey];
+                const debugSelectedLandmarkVisConfig = debugSelectedLandmarkData.client_visual_config; // Corrected: snake_case
+                if (debugSelectedLandmarkVisConfig) {
+                    console.log("[DEBUG] Selected Landmark Key:", lastSelectedTargetLandmarkKey);
+                    console.log("[DEBUG] Selected Landmark Name:", debugSelectedLandmarkData.name);
+                    console.log("[DEBUG] Selected Landmark VisConfig:", JSON.stringify(debugSelectedLandmarkVisConfig));
+                    addDebugMessage(`SLMK: ${lastSelectedTargetLandmarkKey}`);
+                    addDebugMessage(`LMIKey: ${debugSelectedLandmarkVisConfig.landmark_interaction_type_key}`);
+                    addDebugMessage(`LMIntType: ${debugSelectedLandmarkVisConfig.interaction_type}`);
+                } else {
+                    console.log("[DEBUG] Selected landmark has no client_visual_config:", lastSelectedTargetLandmarkKey);
+                    addDebugMessage(`SLMK ${lastSelectedTargetLandmarkKey} no visConfig`);
+                }
             }
 
-            const selectedLandmarkData = lastSelectedTargetLandmarkKey ? currentLocation.landmarks[lastSelectedTargetLandmarkKey] : null;
-            const selectedLandmarkVisConfig = selectedLandmarkData ? selectedLandmarkData.client_visual_config : null;
+            if (!playerSoul || !currentLocation ) {
+                actionButtons.innerHTML = '<p>Loading location data...</p>'; updatePointerLockHUD(); return;
+            }
 
-            if (selectedLandmarkData && selectedLandmarkVisConfig) { 
+            const landmarksInLocation = currentLocation.landmarks || {};
+
+            const selectedLandmarkData = lastSelectedTargetLandmarkKey ? landmarksInLocation[lastSelectedTargetLandmarkKey] : null;
+            const selectedLandmarkVisConfig = selectedLandmarkData ? selectedLandmarkData.client_visual_config : null; // Corrected: snake_case
+
+            if (selectedLandmarkData && selectedLandmarkVisConfig) {
                 const targetName = selectedLandmarkData.name || lastSelectedTargetLandmarkKey;
                 if (selectedLandmarkVisConfig.is_exit_to_location_id) {
-                    let canEnter = true; 
-                    let doorMessage = `Go to ${selectedLandmarkVisConfig.is_exit_to_location_id}`; // Use target location ID for clarity initially
-                    const exitDisplayName = selectedLandmarkVisConfig.exit_display_name || targetName; // Use a specific display name for the exit if provided
+                    let canEnter = true;
+                    let doorMessage = `Go to ${selectedLandmarkVisConfig.is_exit_to_location_id}`;
+                    const exitDisplayName = selectedLandmarkVisConfig.display_name || targetName;
                     doorMessage = `Go to ${exitDisplayName}`;
 
 
                     if (selectedLandmarkVisConfig.linked_puzzle_id_for_open_state) {
                         const puzzle = allPuzzles?.[selectedLandmarkVisConfig.linked_puzzle_id_for_open_state];
-                        if (puzzle && !puzzle.is_complete && !puzzle.is_open) { // Check both flags, assuming one of them means "passable"
-                             canEnter = false; 
-                             doorMessage = `${exitDisplayName} is sealed.`; 
+                        if (puzzle && !puzzle.is_complete && !puzzle.is_open) {
+                             canEnter = false;
+                             doorMessage = `${exitDisplayName} is sealed.`;
                              if (puzzle.custom_sealed_message) doorMessage = puzzle.custom_sealed_message;
                         }
                     }
@@ -782,16 +904,20 @@
                         const itemInteractionRules = item.properties?.client_interaction_rules;
                         if (itemInteractionRules && Array.isArray(itemInteractionRules)) {
                             itemInteractionRules.forEach(rule => {
-                                if (rule.requires_landmark_interaction_type_key && rule.requires_landmark_interaction_type_key === selectedLandmarkVisConfig.landmark_interaction_type_key) {
+                                const actualLandmarkInteractionType = selectedLandmarkVisConfig ? (selectedLandmarkVisConfig.landmark_interaction_type_key || selectedLandmarkVisConfig.interaction_type) : null;
+                                if (rule.requires_landmark_interaction_type_key && selectedLandmarkVisConfig) {
+                                     addDebugMessage(`Rule LMI: ${rule.requires_landmark_interaction_type_key}, Actual: ${actualLandmarkInteractionType}`);
+                                }
+                                if (rule.requires_landmark_interaction_type_key && rule.requires_landmark_interaction_type_key === actualLandmarkInteractionType) {
                                     let actionName = (rule.action_name_template || "Use {artifact_name} on {target_name}")
                                         .replace("{artifact_name}", item.name)
                                         .replace("{target_name}", targetName);
-                                    
+
                                     let argsForAction = {};
                                     if (rule.passes_target_env_object_id_as_param && selectedLandmarkVisConfig.targetable_as_env_object_id) {
                                         argsForAction[rule.passes_target_env_object_id_as_param] = selectedLandmarkVisConfig.targetable_as_env_object_id;
                                     }
-                                    
+
                                     const actionParams = { type: 'action', params: { artifactId: item.id, args: argsForAction }, name: actionName };
                                     availablePointerLockActions.push(actionParams);
                                     const button = document.createElement('button'); button.innerHTML = actionName;
@@ -802,7 +928,7 @@
                         }
                     });
                 }
-            } 
+            }
 
             if (inventory) {
                 inventory.forEach(item => {
@@ -827,9 +953,9 @@
                     }
                 });
             }
-            
+
             if (actionButtons.children.length === 0) {
-                actionButtons.innerHTML = `<p>${lastSelectedTargetLandmarkKey ? 'No specific actions for ' + (selectedLandmarkData?.name || 'selected target') : 'Look around or check inventory.'}</p>`;
+                actionButtons.innerHTML = `<p>${lastSelectedTargetLandmarkKey && landmarksInLocation[lastSelectedTargetLandmarkKey] ? 'No specific actions for ' + (landmarksInLocation[lastSelectedTargetLandmarkKey]?.name || 'selected target') : 'Look around or check inventory.'}</p>`;
             }
             if (availablePointerLockActions.length > 0 && (selectedPointerLockActionIndex === -1 || selectedPointerLockActionIndex >= availablePointerLockActions.length)) {
                 selectedPointerLockActionIndex = 0;
@@ -843,15 +969,13 @@
         socket.on('connect', () => { addLogMessage('Connected to Orb Oracle!', 'success'); addDebugMessage(`SID: ${socket.id}`); clientSideLastLocationId = null; if (!scene) { initThree(); } });
         socket.on('disconnect', () => { addLogMessage('Disconnected from Oracle.', 'error'); if(usingDesktopControls && document.pointerLockElement) document.exitPointerLock(); });
         socket.on('assignSoulId', (id) => { playerSoulId = id; addDebugMessage(`Soul ID: ${playerSoulId.substring(0,8)}`); socket.emit('requestState'); });
-        
+
         socket.on('gameStateUpdate', (state) => {
             if (state.error){ addLogMessage(`Server Error: ${state.error}`, 'error'); return; }
             const oldTargetKey = lastSelectedTargetLandmarkKey;
-            updateStatus(state); 
-            updateLog(state.worldLog); 
-            if (oldTargetKey === lastSelectedTargetLandmarkKey || !lastSelectedTargetLandmarkKey) { 
-                 updateContextualActionsDisplay(); 
-            }
+            updateStatus(state);
+            updateLog(state.worldLog);
+            updateContextualActionsDisplay();
         });
 
         socket.on('actionResult', (result) => {
@@ -872,9 +996,8 @@
             }
         });
         socket.on('debugInfo', (message) => { addDebugMessage(message); });
-        
+
         addLogMessage('Reaching out to the ether...');
     </script>
 </body>
 </html>
-
